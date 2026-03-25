@@ -38,11 +38,111 @@
             min-height: 100%;
             -webkit-font-smoothing: antialiased;
         }
-        .layout {
+        #app {
             max-width: 420px;
             margin: 0 auto;
             min-height: 100vh;
-            padding: 20px 18px 96px;
+            min-height: 100dvh;
+        }
+        .app-shell {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            min-height: 100dvh;
+        }
+        .main-scroll {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 16px 16px 12px;
+            -webkit-overflow-scrolling: touch;
+        }
+        .live-strip {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 14px;
+        }
+        .live-strip-inner {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            font-variant-numeric: tabular-nums;
+        }
+        @media (max-width: 360px) {
+            .live-strip-inner {
+                grid-template-columns: repeat(2, 1fr);
+                row-gap: 8px;
+            }
+        }
+        .live-strip .cell label {
+            display: block;
+            font-size: 0.5625rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-secondary);
+            margin-bottom: 2px;
+        }
+        .live-strip .cell strong {
+            font-size: 0.8125rem;
+            font-weight: 700;
+        }
+        .live-strip .cell.tickets strong { color: #fbbf24; }
+        .live-strip .cell.hype strong { color: #2dd4bf; }
+        .tab-context {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            line-height: 1.45;
+            margin: 0 0 12px;
+        }
+        .tab-panel {
+            display: none;
+            animation: tabFade 0.2s ease;
+        }
+        .tab-panel.active {
+            display: block;
+        }
+        @keyframes tabFade {
+            from { opacity: 0.85; }
+            to { opacity: 1; }
+        }
+        .tab-bar {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .tab-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            min-height: 48px;
+            padding: 8px 6px;
+            border-radius: 10px;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+        }
+        .tab-btn:active { transform: scale(0.97); }
+        .tab-btn .tab-ico {
+            font-size: 1.125rem;
+            line-height: 1;
+            opacity: 0.9;
+        }
+        .tab-btn.active {
+            color: var(--accent);
+            background: var(--accent-dim);
         }
         .top {
             margin-bottom: 20px;
@@ -355,7 +455,7 @@
         }
         .toast {
             position: fixed;
-            bottom: 24px;
+            bottom: calc(84px + env(safe-area-inset-bottom, 0px));
             left: 50%;
             transform: translateX(-50%);
             padding: 14px 20px;
@@ -600,7 +700,7 @@
     </style>
 </head>
 <body>
-    <div class="layout" id="app"></div>
+    <div id="app"></div>
     <script type="module" src="./arcade-game.js"></script>
 </body>
 </html>

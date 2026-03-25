@@ -2,6 +2,37 @@
  * Arcade Empire — tycoon (room, cabinet upgrades, daily claw).
  */
 const SAVE_KEY = 'arcade-empire-v2';
+const UI_TAB_KEY = 'arcade-ui-tab';
+
+function getActiveTab() {
+  try {
+    const t = sessionStorage.getItem(UI_TAB_KEY);
+    if (t === 'home' || t === 'floor' || t === 'shop') return t;
+  } catch (_) {}
+  return 'home';
+}
+
+function setActiveTab(tab) {
+  try {
+    sessionStorage.setItem(UI_TAB_KEY, tab);
+  } catch (_) {}
+}
+
+function syncHudStats(state) {
+  const coins = `${Math.floor(state.coins)}¢`;
+  document.querySelectorAll('[data-stat="coins"]').forEach((el) => {
+    el.textContent = coins;
+  });
+  document.querySelectorAll('[data-stat="tickets"]').forEach((el) => {
+    el.textContent = String(state.tickets);
+  });
+  document.querySelectorAll('[data-stat="hype"]').forEach((el) => {
+    el.textContent = `${Math.round(state.hype)}%`;
+  });
+  document.querySelectorAll('[data-stat="comfort"]').forEach((el) => {
+    el.textContent = `${Math.round(state.comfort)}%`;
+  });
+}
 
 export const ARCADE_DEVNET = {
   mint: 'G6V72JHHinX2JVRetdGuZzE4kdB7v6andgAZTYSAtH1i',
@@ -774,81 +805,129 @@ function render(state, root) {
   const canExpand = state.slotCount < SLOT_MAX && state.coins >= expandCost;
 
   const clawHandler = () => openClawMachine(state, () => render(state, root));
+  const activeTab = getActiveTab();
+  const isHome = activeTab === 'home';
+  const isFloor = activeTab === 'floor';
+  const isShop = activeTab === 'shop';
 
   root.innerHTML = `
-    <div class="top">
-      <div class="top-row">
-        <div>
-          <h1>Arcade Empire</h1>
-          <p class="subtitle">Venue operations: layout, equipment, and daily revenue drivers.</p>
+    <div class="app-shell">
+      <div class="main-scroll">
+        <div class="top">
+          <div class="top-row">
+            <div>
+              <h1>Arcade Empire</h1>
+              <p class="subtitle">Venue operations — use tabs below on mobile.</p>
+            </div>
+            <a href="https://github.com/jonaskroeger26/Arcade" target="_blank" rel="noopener noreferrer">Source</a>
+          </div>
         </div>
-        <a href="https://github.com/jonaskroeger26/Arcade" target="_blank" rel="noopener noreferrer">Source</a>
-      </div>
-    </div>
-    <div class="hud">
-      <div class="stat"><div class="lbl">Floor credits</div><div class="val" id="coinsDisp">${Math.floor(state.coins)}¢</div></div>
-      <div class="stat tickets"><div class="lbl">Tickets</div><div class="val" id="ticketsDisp">${state.tickets}</div></div>
-      <div class="stat hype"><div class="lbl">Foot traffic</div><div class="val" id="hypeDisp">${Math.round(state.hype)}%</div></div>
-      <div class="stat"><div class="lbl">Ambience</div><div class="val" id="comfortDisp">${Math.round(state.comfort)}%</div></div>
-      <div class="stat token" style="grid-column:1/-1;">
-        <div class="lbl">ARCADE token (Devnet)</div>
-        <div class="val" id="walletArcadeBal">—</div>
-      </div>
-    </div>
-    <p class="toolbar-label">Actions</p>
-    <div class="row-btns">
-      <button type="button" class="btn-secondary" id="btnWallet">${getSolana()?.publicKey ? 'Refresh wallet' : 'Connect wallet'}</button>
-      <button type="button" class="btn-amber" id="btnRush" ${rush || rushCd || state.tickets < 1 ? 'disabled' : ''}>
-        ${rush ? 'Rush active' : rushCd ? 'Rush cooling…' : 'Rush hour (1 ticket)'}
-      </button>
-      <button type="button" class="btn-muted" id="btnBp">Season pass</button>
-      <button type="button" class="btn-primary" id="btnExpand" ${canExpand ? '' : 'disabled'}>
-        Expand floor · ${expandCost}¢ (${state.slotCount}/${SLOT_MAX})
-      </button>
-      <button type="button" class="btn-claw" id="btnClaw" ${clawLeft === 0 ? 'disabled' : ''}>${clawLabel}</button>
-    </div>
-    <section>
-      <h2>Floor layout</h2>
-      <div class="arcade-room">
-        <div class="room-wall">
-          <div class="strip">Live floor preview</div>
+        <div class="live-strip">
+          <div class="live-strip-inner">
+            <div class="cell"><label>Credits</label><strong data-stat="coins">${Math.floor(state.coins)}¢</strong></div>
+            <div class="cell tickets"><label>Tickets</label><strong data-stat="tickets">${state.tickets}</strong></div>
+            <div class="cell hype"><label>Traffic</label><strong data-stat="hype">${Math.round(state.hype)}%</strong></div>
+            <div class="cell"><label>Comfort</label><strong data-stat="comfort">${Math.round(state.comfort)}%</strong></div>
+          </div>
         </div>
-        <div class="room-floor">
-          <div class="claw-booth">
-            <div class="claw-booth-inner">
-              <svg class="claw-mini" viewBox="0 0 64 64" aria-hidden="true">
-                <rect x="8" y="10" width="48" height="4" rx="1" fill="#52525b"/>
-                <rect x="30" y="14" width="4" height="14" fill="#71717a"/>
-                <path d="M26 30 L32 38 L38 30" fill="#52525b"/>
-                <rect x="10" y="42" width="44" height="14" rx="2" fill="rgba(14,165,233,0.12)" stroke="#3f3f46"/>
-                <circle cx="24" cy="50" r="5" fill="#ec4899" opacity="0.85"/>
-                <circle cx="40" cy="50" r="5" fill="#f59e0b" opacity="0.85"/>
-              </svg>
-              <div style="flex:1;min-width:0">
-                <div class="claw-label">Lobby prize claw</div>
-                <p class="claw-hint">${CLAW_PLAYS_PER_DAY} complementary plays per day (UTC). Full animation with grab sequence.</p>
-                <button type="button" class="btn-secondary" id="clawBoothBtn" style="margin-top:10px;width:100%" ${clawLeft === 0 ? 'disabled' : ''}>Run prize claw</button>
-              </div>
+        <div class="tab-panel${isHome ? ' active' : ''}" data-panel="home" role="tabpanel" aria-hidden="${isHome ? 'false' : 'true'}">
+          <div class="hud">
+            <div class="stat"><div class="lbl">Floor credits</div><div class="val" data-stat="coins">${Math.floor(state.coins)}¢</div></div>
+            <div class="stat tickets"><div class="lbl">Tickets</div><div class="val" data-stat="tickets">${state.tickets}</div></div>
+            <div class="stat hype"><div class="lbl">Foot traffic</div><div class="val" data-stat="hype">${Math.round(state.hype)}%</div></div>
+            <div class="stat"><div class="lbl">Ambience</div><div class="val" data-stat="comfort">${Math.round(state.comfort)}%</div></div>
+            <div class="stat token" style="grid-column:1/-1;">
+              <div class="lbl">ARCADE token (Devnet)</div>
+              <div class="val" id="walletArcadeBal">—</div>
             </div>
           </div>
-          <div class="floor-grid">${floorSlots.join('')}</div>
+          <p class="toolbar-label">Actions</p>
+          <div class="row-btns">
+            <button type="button" class="btn-secondary" id="btnWallet">${getSolana()?.publicKey ? 'Refresh wallet' : 'Connect wallet'}</button>
+            <button type="button" class="btn-amber" id="btnRush" ${rush || rushCd || state.tickets < 1 ? 'disabled' : ''}>
+              ${rush ? 'Rush active' : rushCd ? 'Rush cooling…' : 'Rush hour (1 ticket)'}
+            </button>
+            <button type="button" class="btn-muted" id="btnBp">Season pass</button>
+            <button type="button" class="btn-primary" id="btnExpand" ${canExpand ? '' : 'disabled'}>
+              Expand floor · ${expandCost}¢ (${state.slotCount}/${SLOT_MAX})
+            </button>
+            <button type="button" class="btn-claw" id="btnClaw" ${clawLeft === 0 ? 'disabled' : ''}>${clawLabel}</button>
+          </div>
+        </div>
+        <div class="tab-panel${isFloor ? ' active' : ''}" data-panel="floor" role="tabpanel" aria-hidden="${isFloor ? 'false' : 'true'}">
+          <p class="tab-context">Floor layout, upgrades, and the daily prize claw. Buy new cabinets in <strong>Shop</strong>.</p>
+          <section>
+            <h2>Floor layout</h2>
+            <div class="arcade-room">
+              <div class="room-wall">
+                <div class="strip">Live floor preview</div>
+              </div>
+              <div class="room-floor">
+                <div class="claw-booth">
+                  <div class="claw-booth-inner">
+                    <svg class="claw-mini" viewBox="0 0 64 64" aria-hidden="true">
+                      <rect x="8" y="10" width="48" height="4" rx="1" fill="#52525b"/>
+                      <rect x="30" y="14" width="4" height="14" fill="#71717a"/>
+                      <path d="M26 30 L32 38 L38 30" fill="#52525b"/>
+                      <rect x="10" y="42" width="44" height="14" rx="2" fill="rgba(14,165,233,0.12)" stroke="#3f3f46"/>
+                      <circle cx="24" cy="50" r="5" fill="#ec4899" opacity="0.85"/>
+                      <circle cx="40" cy="50" r="5" fill="#f59e0b" opacity="0.85"/>
+                    </svg>
+                    <div style="flex:1;min-width:0">
+                      <div class="claw-label">Lobby prize claw</div>
+                      <p class="claw-hint">${CLAW_PLAYS_PER_DAY} free plays per day (UTC), animated pickup sequence.</p>
+                      <button type="button" class="btn-secondary" id="clawBoothBtn" style="margin-top:10px;width:100%" ${clawLeft === 0 ? 'disabled' : ''}>Run prize claw</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="floor-grid">${floorSlots.join('')}</div>
+              </div>
+            </div>
+          </section>
+        </div>
+        <div class="tab-panel${isShop ? ' active' : ''}" data-panel="shop" role="tabpanel" aria-hidden="${isShop ? 'false' : 'true'}">
+          <p class="tab-context">Equipment is placed automatically into the next open slot on your floor (expand capacity from <strong>Home</strong>).</p>
+          <section>
+            <h2>Equipment catalog</h2>
+            <div class="shop">${shop}</div>
+          </section>
+          <p class="footer-note">
+            Progress stored locally. Devnet mint <span style="color:#38bdf8">${ARCADE_DEVNET.mint.slice(0, 8)}…</span>
+          </p>
         </div>
       </div>
-    </section>
-    <section>
-      <h2>Equipment catalog</h2>
-      <div class="shop">${shop}</div>
-    </section>
-    <p class="footer-note">
-      Progress stored locally in this browser. Devnet mint <span style="color:#38bdf8">${ARCADE_DEVNET.mint.slice(0, 8)}…</span>
-    </p>
+      <nav class="tab-bar" role="tablist" aria-label="Sections">
+        <button type="button" class="tab-btn${isHome ? ' active' : ''}" role="tab" aria-selected="${isHome ? 'true' : 'false'}" data-tab="home">
+          <span class="tab-ico" aria-hidden="true">◇</span>
+          Home
+        </button>
+        <button type="button" class="tab-btn${isFloor ? ' active' : ''}" role="tab" aria-selected="${isFloor ? 'true' : 'false'}" data-tab="floor">
+          <span class="tab-ico" aria-hidden="true">▦</span>
+          Floor
+        </button>
+        <button type="button" class="tab-btn${isShop ? ' active' : ''}" role="tab" aria-selected="${isShop ? 'true' : 'false'}" data-tab="shop">
+          <span class="tab-ico" aria-hidden="true">◈</span>
+          Shop
+        </button>
+      </nav>
+    </div>
   `;
 
-  root.querySelector('#btnClaw').onclick = clawHandler;
+  root.querySelectorAll('.tab-bar .tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const t = btn.getAttribute('data-tab');
+      if (t === 'home' || t === 'floor' || t === 'shop') {
+        setActiveTab(t);
+        render(state, root);
+      }
+    });
+  });
+
+  root.querySelector('#btnClaw')?.addEventListener('click', clawHandler);
   const boothBtn = root.querySelector('#clawBoothBtn');
   if (boothBtn) boothBtn.onclick = clawHandler;
 
-  root.querySelector('#btnWallet').onclick = async () => {
+  root.querySelector('#btnWallet')?.addEventListener('click', async () => {
     const s = getSolana();
     if (!s) {
       toast('No wallet (open in Phantom / Seeker)', true);
@@ -864,9 +943,9 @@ function render(state, root) {
     }
     await refreshWalletArcade(state);
     toast('Wallet refreshed');
-  };
+  });
 
-  root.querySelector('#btnRush').onclick = () => {
+  root.querySelector('#btnRush')?.addEventListener('click', () => {
     const now = Date.now();
     if (now < state.rushEnd || now < state.rushCooldownUntil) return;
     if (state.tickets < 1) {
@@ -880,11 +959,13 @@ function render(state, root) {
     toast('Rush hour — double credits!');
     saveState(state);
     render(state, root);
-  };
+  });
 
-  root.querySelector('#btnBp').onclick = () => openBattlePassModal(state, () => render(state, root));
+  root.querySelector('#btnBp')?.addEventListener('click', () =>
+    openBattlePassModal(state, () => render(state, root)),
+  );
 
-  root.querySelector('#btnExpand').onclick = () => {
+  root.querySelector('#btnExpand')?.addEventListener('click', () => {
     if (state.slotCount >= SLOT_MAX) return;
     const cost = SLOT_EXPAND_COST(state.slotCount);
     if (state.coins < cost) return;
@@ -893,7 +974,7 @@ function render(state, root) {
     toast(`Room expanded — ${state.slotCount} spots`);
     saveState(state);
     render(state, root);
-  };
+  });
 
   root.querySelectorAll('[data-buy]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -995,14 +1076,7 @@ function boot() {
     if (ts - lastTickUi >= 500) {
       lastTickUi = ts;
       tick(state);
-      const coinsEl = document.getElementById('coinsDisp');
-      if (coinsEl) coinsEl.textContent = `${Math.floor(state.coins)}¢`;
-      const hypeEl = document.getElementById('hypeDisp');
-      const comfortEl = document.getElementById('comfortDisp');
-      const tickEl = document.getElementById('ticketsDisp');
-      if (hypeEl) hypeEl.textContent = `${Math.round(state.hype)}%`;
-      if (comfortEl) comfortEl.textContent = `${Math.round(state.comfort)}%`;
-      if (tickEl) tickEl.textContent = String(state.tickets);
+      syncHudStats(state);
       const rush = Date.now() < state.rushEnd;
       document.querySelectorAll('.cabinet').forEach((el) => {
         if (rush) el.classList.add('rush');
