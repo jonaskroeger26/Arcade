@@ -853,6 +853,18 @@ function render(state, root) {
             </button>
             <button type="button" class="btn-claw" id="btnClaw" ${clawLeft === 0 ? 'disabled' : ''}>${clawLabel}</button>
           </div>
+          <section class="home-machines-section">
+            <h2>Your machines</h2>
+            <div class="arcade-room">
+              <div class="room-wall">
+                <div class="strip">Active floor</div>
+              </div>
+              <div class="room-floor room-floor--home">
+                <div class="floor-grid">${floorSlots.join('')}</div>
+              </div>
+            </div>
+          </section>
+          <p class="tab-context" style="margin-top:14px;margin-bottom:0">Full claw booth: <strong>Floor</strong> tab · New cabinets: <strong>Shop</strong>.</p>
         </div>
         <div class="tab-panel${isFloor ? ' active' : ''}" data-panel="floor" role="tabpanel" aria-hidden="${isFloor ? 'false' : 'true'}">
           <p class="tab-context">Floor layout, upgrades, and the daily prize claw. Buy new cabinets in <strong>Shop</strong>.</p>
