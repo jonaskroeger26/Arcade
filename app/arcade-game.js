@@ -508,16 +508,16 @@ function rollClawReward(prizeIdx) {
 function clawSvgMarkup() {
   const [c0, c1, c2] = CLAW_PIT_COLORS;
   return `
-    <svg class="claw-svg" viewBox="0 0 412 302" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <svg class="claw-svg" viewBox="0 0 412 320" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs>
         <linearGradient id="clawPillarL" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stop-color="#450a0a"/><stop offset="45%" stop-color="#b91c1c"/><stop offset="100%" stop-color="#7f1d1d"/>
+          <stop offset="0%" stop-color="#7f1d1d"/><stop offset="38%" stop-color="#f87171"/><stop offset="100%" stop-color="#b91c1c"/>
         </linearGradient>
         <linearGradient id="clawPillarR" x1="100%" y1="0%" x2="0%" y2="0%">
-          <stop offset="0%" stop-color="#450a0a"/><stop offset="45%" stop-color="#b91c1c"/><stop offset="100%" stop-color="#7f1d1d"/>
+          <stop offset="0%" stop-color="#7f1d1d"/><stop offset="38%" stop-color="#f87171"/><stop offset="100%" stop-color="#b91c1c"/>
         </linearGradient>
         <linearGradient id="clawArchGrad" x1="50%" y1="0%" x2="50%" y2="100%">
-          <stop offset="0%" stop-color="#991b1b"/><stop offset="100%" stop-color="#7f1d1d"/>
+          <stop offset="0%" stop-color="#ef4444"/><stop offset="100%" stop-color="#991b1b"/>
         </linearGradient>
         <linearGradient id="clawVoid" x1="50%" y1="0%" x2="50%" y2="100%">
           <stop offset="0%" stop-color="#1c1917"/><stop offset="55%" stop-color="#0f0e0d"/><stop offset="100%" stop-color="#050403"/>
@@ -567,20 +567,41 @@ function clawSvgMarkup() {
         <filter id="clawLedGlow" x="-100%" y="-100%" width="300%" height="300%">
           <feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
         </filter>
+        <radialGradient id="clawBulbW" cx="35%" cy="35%" r="55%">
+          <stop offset="0%" stop-color="#ffffff"/><stop offset="55%" stop-color="#e2e8f0"/><stop offset="100%" stop-color="#94a3b8"/>
+        </radialGradient>
+        <radialGradient id="clawBulbA" cx="35%" cy="35%" r="55%">
+          <stop offset="0%" stop-color="#fef9c3"/><stop offset="50%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#d97706"/>
+        </radialGradient>
+        <filter id="clawMarqueeGlow" x="-120%" y="-120%" width="340%" height="340%">
+          <feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <linearGradient id="clawNeonStrip" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#c084fc"/><stop offset="45%" stop-color="#818cf8"/><stop offset="100%" stop-color="#38bdf8"/>
+        </linearGradient>
+        <filter id="clawNeonGlow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <linearGradient id="clawBackFog" x1="50%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%" stop-color="#9ca3af"/><stop offset="55%" stop-color="#64748b"/><stop offset="100%" stop-color="#475569"/>
+        </linearGradient>
       </defs>
-      <!-- First-person booth shell: converging pillars + arch (reference-inspired, restrained) -->
-      <rect width="412" height="302" fill="#09090b"/>
+      <!-- Arcade booth shell (reference: candy-red pillars + vertical marquee strands) -->
+      <rect width="412" height="320" fill="#0a0610"/>
       <g filter="url(#clawCabShadow)">
-        <path d="M 0 302 L 52 58 L 64 58 L 18 302 Z" fill="url(#clawPillarL)"/>
-        <path d="M 412 302 L 360 58 L 348 58 L 394 302 Z" fill="url(#clawPillarR)"/>
-        <path d="M 52 58 L 360 58 L 352 44 L 60 44 Z" fill="url(#clawArchGrad)" stroke="#450a0a" stroke-width="0.6"/>
+        <path d="M 0 320 L 46 52 L 72 52 L 12 320 Z" fill="url(#clawPillarL)" stroke="#450a0a" stroke-width="0.5"/>
+        <path d="M 412 320 L 366 52 L 340 52 L 400 320 Z" fill="url(#clawPillarR)" stroke="#450a0a" stroke-width="0.5"/>
+        <path d="M 46 52 L 366 52 L 352 36 L 60 36 Z" fill="url(#clawArchGrad)" stroke="#7f1d1d" stroke-width="0.75"/>
       </g>
-      <g fill="#fbbf24" opacity="0.9">
-        <circle cx="58" cy="210" r="2.2"/><circle cx="54" cy="174" r="2"/><circle cx="50" cy="138" r="2.2"/><circle cx="47" cy="102" r="2"/>
-        <circle cx="354" cy="210" r="2.2"/><circle cx="358" cy="174" r="2"/><circle cx="362" cy="138" r="2.2"/><circle cx="365" cy="102" r="2"/>
-      </g>
-      <g fill="#fef9c3" opacity="0.55">
-        <circle cx="61" cy="192" r="1.6"/><circle cx="57" cy="156" r="1.5"/><circle cx="351" cy="192" r="1.6"/><circle cx="355" cy="156" r="1.5"/>
+      <g filter="url(#clawMarqueeGlow)">
+        <circle cx="54" cy="98" r="3.2" fill="url(#clawBulbW)"/><circle cx="54" cy="122" r="3.2" fill="url(#clawBulbA)"/><circle cx="54" cy="146" r="3.2" fill="url(#clawBulbW)"/><circle cx="54" cy="170" r="3.2" fill="url(#clawBulbA)"/>
+        <circle cx="54" cy="194" r="3.2" fill="url(#clawBulbW)"/><circle cx="54" cy="218" r="3.2" fill="url(#clawBulbA)"/><circle cx="54" cy="242" r="3.2" fill="url(#clawBulbW)"/><circle cx="54" cy="266" r="3.2" fill="url(#clawBulbA)"/>
+        <circle cx="66" cy="110" r="2.6" fill="url(#clawBulbA)"/><circle cx="66" cy="134" r="2.6" fill="url(#clawBulbW)"/><circle cx="66" cy="158" r="2.6" fill="url(#clawBulbA)"/><circle cx="66" cy="182" r="2.6" fill="url(#clawBulbW)"/>
+        <circle cx="66" cy="206" r="2.6" fill="url(#clawBulbA)"/><circle cx="66" cy="230" r="2.6" fill="url(#clawBulbW)"/><circle cx="66" cy="254" r="2.6" fill="url(#clawBulbA)"/>
+        <circle cx="358" cy="98" r="3.2" fill="url(#clawBulbW)"/><circle cx="358" cy="122" r="3.2" fill="url(#clawBulbA)"/><circle cx="358" cy="146" r="3.2" fill="url(#clawBulbW)"/><circle cx="358" cy="170" r="3.2" fill="url(#clawBulbA)"/>
+        <circle cx="358" cy="194" r="3.2" fill="url(#clawBulbW)"/><circle cx="358" cy="218" r="3.2" fill="url(#clawBulbA)"/><circle cx="358" cy="242" r="3.2" fill="url(#clawBulbW)"/><circle cx="358" cy="266" r="3.2" fill="url(#clawBulbA)"/>
+        <circle cx="346" cy="110" r="2.6" fill="url(#clawBulbA)"/><circle cx="346" cy="134" r="2.6" fill="url(#clawBulbW)"/><circle cx="346" cy="158" r="2.6" fill="url(#clawBulbA)"/><circle cx="346" cy="182" r="2.6" fill="url(#clawBulbW)"/>
+        <circle cx="346" cy="206" r="2.6" fill="url(#clawBulbA)"/><circle cx="346" cy="230" r="2.6" fill="url(#clawBulbW)"/><circle cx="346" cy="254" r="2.6" fill="url(#clawBulbA)"/>
       </g>
       <!-- Window gasket -->
       <rect x="18" y="74" width="318" height="222" rx="12" fill="#171717"/>
@@ -589,10 +610,11 @@ function clawSvgMarkup() {
       <g clip-path="url(#clawChamberClip)">
         <rect x="30" y="82" width="300" height="202" fill="url(#clawVoid)"/>
         <!-- Ceiling plane (recedes toward back) -->
-        <path d="M 84 90 L 276 90 L 268 102 L 92 102 Z" fill="url(#clawCeil3d)" opacity="0.95"/>
-        <path d="M 84 90 L 276 90" stroke="rgba(255,255,255,0.05)" stroke-width="0.75"/>
-        <!-- Back wall -->
-        <path d="M 92 102 L 268 102 L 264 174 L 96 174 Z" fill="#14110f" stroke="rgba(255,200,170,0.04)" stroke-width="0.75"/>
+        <path d="M 84 90 L 276 90 L 268 102 L 92 102 Z" fill="url(#clawCeil3d)" opacity="0.92"/>
+        <path d="M 84 90 L 276 90" stroke="rgba(255,255,255,0.08)" stroke-width="0.75"/>
+        <!-- Back wall: dark + frosted gray “glass depth” -->
+        <path d="M 92 102 L 268 102 L 264 174 L 96 174 Z" fill="#0f1218"/>
+        <path d="M 92 102 L 268 102 L 264 174 L 96 174 Z" fill="url(#clawBackFog)" opacity="0.38"/>
         <!-- Side walls (box corners) -->
         <path d="M 32 86 L 92 102 L 96 174 L 48 258 L 34 246 Z" fill="url(#clawWallLeft)"/>
         <path d="M 328 86 L 268 102 L 264 174 L 312 258 L 326 246 Z" fill="url(#clawWallRight)"/>
@@ -601,27 +623,77 @@ function clawSvgMarkup() {
         <!-- Floor plane (trapezoid — wide toward player) -->
         <path d="M 40 262 L 320 262 L 264 174 L 96 174 Z" fill="url(#clawFloor3d)"/>
         <path d="M 96 174 L 264 174 L 320 262" stroke="rgba(0,0,0,0.4)" stroke-width="0.8" opacity="0.7"/>
-        <!-- Carpet pile on floor -->
+        <!-- Prize drop chute (left wall — draw after floor so it stays visible) -->
+        <path d="M 40 232 L 58 227 L 60 256 L 44 262 Z" fill="#292524" stroke="#dc2626" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M 46 236 L 54 234 L 55 248 L 48 251 Z" fill="#1c1917" opacity="0.85"/>
+        <!-- Neon rim (purple / blue, reference) -->
+        <path d="M 40 262 L 320 262" fill="none" stroke="url(#clawNeonStrip)" stroke-width="5" stroke-linecap="round" filter="url(#clawNeonGlow)" opacity="0.85"/>
+        <path d="M 42 258 L 318 258" fill="none" stroke="url(#clawNeonStrip)" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+        <path d="M 46 258 L 48 236 L 34 246" fill="none" stroke="#a855f7" stroke-width="2" opacity="0.5" filter="url(#clawNeonGlow)"/>
+        <path d="M 314 258 L 312 236 L 326 246" fill="none" stroke="#38bdf8" stroke-width="2" opacity="0.5" filter="url(#clawNeonGlow)"/>
+        <!-- Carpet / pile mass -->
         <ellipse cx="180" cy="232" rx="118" ry="22" fill="#2d241c" transform="skewX(-6)"/>
-        <ellipse cx="180" cy="225" rx="108" ry="17" fill="#3d3228" opacity="0.9" transform="skewX(-5)"/>
-        <ellipse cx="180" cy="218" rx="92" ry="11" fill="#52463b" opacity="0.65" transform="skewX(-4)"/>
-        <ellipse cx="180" cy="212" rx="76" ry="7" fill="rgba(251,191,36,0.08)" transform="skewX(-3)"/>
-        <!-- Base filler spheres (prize pit bed) -->
-        <g opacity="0.88">
-          <ellipse cx="68" cy="256" rx="11" ry="5" fill="#0c4a6e"/><circle cx="68" cy="248" r="9" fill="url(#clawBallBlue)"/>
-          <ellipse cx="118" cy="258" rx="11" ry="5" fill="#0c4a6e"/><circle cx="118" cy="250" r="9" fill="url(#clawBallBlue)"/>
-          <ellipse cx="168" cy="259" rx="11" ry="5" fill="#0c4a6e"/><circle cx="168" cy="251" r="9" fill="url(#clawBallBlue)"/>
-          <ellipse cx="192" cy="259" rx="11" ry="5" fill="#0c4a6e"/><circle cx="192" cy="251" r="9" fill="url(#clawBallBlue)"/>
-          <ellipse cx="216" cy="259" rx="11" ry="5" fill="#0c4a6e"/><circle cx="216" cy="251" r="9" fill="url(#clawBallBlue)"/>
+        <ellipse cx="180" cy="225" rx="108" ry="17" fill="#393028" opacity="0.92" transform="skewX(-5)"/>
+        <ellipse cx="180" cy="218" rx="92" ry="11" fill="#4a3f36" opacity="0.7" transform="skewX(-4)"/>
+        <ellipse cx="180" cy="212" rx="76" ry="7" fill="rgba(168,85,247,0.07)" transform="skewX(-3)"/>
+        <!-- Dense blue prize bed -->
+        <g opacity="0.92">
+          <ellipse cx="58" cy="254" rx="10" ry="4.5" fill="#0c4a6e"/><circle cx="58" cy="247" r="8" fill="url(#clawBallBlue)"/>
+          <ellipse cx="88" cy="258" rx="11" ry="5" fill="#0c4a6e"/><circle cx="88" cy="250" r="9" fill="url(#clawBallBlue)"/>
+          <ellipse cx="118" cy="259" rx="11" ry="5" fill="#0c4a6e"/><circle cx="118" cy="251" r="9" fill="url(#clawBallBlue)"/>
+          <ellipse cx="148" cy="260" rx="10" ry="4.5" fill="#0c4a6e"/><circle cx="148" cy="252" r="8.5" fill="url(#clawBallBlue)"/>
+          <ellipse cx="178" cy="261" rx="11" ry="5" fill="#0c4a6e"/><circle cx="178" cy="253" r="9" fill="url(#clawBallBlue)"/>
+          <ellipse cx="208" cy="260" rx="10" ry="4.5" fill="#0c4a6e"/><circle cx="208" cy="252" r="8.5" fill="url(#clawBallBlue)"/>
+          <ellipse cx="238" cy="259" rx="11" ry="5" fill="#0c4a6e"/><circle cx="238" cy="251" r="9" fill="url(#clawBallBlue)"/>
           <ellipse cx="268" cy="258" rx="11" ry="5" fill="#0c4a6e"/><circle cx="268" cy="250" r="9" fill="url(#clawBallBlue)"/>
-          <ellipse cx="292" cy="256" rx="11" ry="5" fill="#0c4a6e"/><circle cx="292" cy="248" r="9" fill="url(#clawBallBlue)"/>
+          <ellipse cx="298" cy="256" rx="10" ry="4.5" fill="#0c4a6e"/><circle cx="298" cy="248" r="8" fill="url(#clawBallBlue)"/>
+          <ellipse cx="328" cy="252" rx="9" ry="4" fill="#0c4a6e"/><circle cx="328" cy="246" r="7.5" fill="url(#clawBallBlue)"/>
+          <ellipse cx="72" cy="242" rx="9" ry="4" fill="#0c4a6e"/><circle cx="72" cy="236" r="7.5" fill="url(#clawBallBlue)"/>
+          <ellipse cx="102" cy="246" rx="10" ry="4.5" fill="#0c4a6e"/><circle cx="102" cy="239" r="8" fill="url(#clawBallBlue)"/>
+          <ellipse cx="134" cy="248" rx="9" ry="4" fill="#0c4a6e"/><circle cx="134" cy="242" r="7.5" fill="url(#clawBallBlue)"/>
+          <ellipse cx="196" cy="249" rx="10" ry="4.5" fill="#0c4a6e"/><circle cx="196" cy="242" r="8" fill="url(#clawBallBlue)"/>
+          <ellipse cx="254" cy="247" rx="9" ry="4" fill="#0c4a6e"/><circle cx="254" cy="241" r="7.5" fill="url(#clawBallBlue)"/>
+          <ellipse cx="286" cy="244" rx="10" ry="4.5" fill="#0c4a6e"/><circle cx="286" cy="238" r="8" fill="url(#clawBallBlue)"/>
+          <ellipse cx="314" cy="240" rx="8" ry="3.5" fill="#0c4a6e"/><circle cx="314" cy="235" r="6.5" fill="url(#clawBallBlue)"/>
         </g>
-        <!-- Prizes on prize row (slightly smaller at sides = depth cue) -->
+        <!-- Decor plush pile (reference-style heap) -->
+        <g class="claw-decor-plush" opacity="0.95">
+          <g transform="translate(96,218)">
+            <ellipse cx="0" cy="12" rx="13" ry="11" fill="#78350f"/><circle cx="0" cy="-1" r="10" fill="#b45309"/>
+            <polygon points="-8,-11 -5,-20 -2,-11" fill="#b45309"/><polygon points="8,-11 5,-20 2,-11" fill="#b45309"/>
+            <circle cx="-3" cy="-3" r="1.8" fill="#1f2937"/><circle cx="3" cy="-3" r="1.8" fill="#1f2937"/>
+          </g>
+          <g transform="translate(138,224)">
+            <ellipse cx="0" cy="11" rx="14" ry="12" fill="#be185d"/><circle cx="0" cy="-2" r="11" fill="#f472b6"/>
+            <polygon points="-9,-12 -6,-22 -2,-12" fill="#f472b6"/><polygon points="9,-12 6,-22 2,-12" fill="#f472b6"/>
+            <circle cx="-4" cy="-4" r="2" fill="#1f2937"/><circle cx="4" cy="-4" r="2" fill="#1f2937"/>
+          </g>
+          <g transform="translate(220,220)">
+            <ellipse cx="0" cy="12" rx="14" ry="11" fill="#047857"/><circle cx="0" cy="-1" r="10" fill="#34d399"/>
+            <polygon points="-7,-10 -5,-18 -2,-10" fill="#34d399"/><polygon points="7,-10 5,-18 2,-10" fill="#34d399"/>
+            <circle cx="-3" cy="-3" r="1.8" fill="#1f2937"/><circle cx="3" cy="-3" r="1.8" fill="#1f2937"/>
+          </g>
+          <g transform="translate(258,222)">
+            <ellipse cx="0" cy="10" rx="12" ry="10" fill="#a16207"/><circle cx="0" cy="-2" r="9" fill="#facc15"/>
+            <polygon points="-7,-11 -4,-19 -2,-11" fill="#facc15"/><polygon points="7,-11 4,-19 2,-11" fill="#facc15"/>
+            <circle cx="-3" cy="-4" r="1.6" fill="#1f2937"/><circle cx="3" cy="-4" r="1.6" fill="#1f2937"/>
+          </g>
+          <g transform="translate(274,228) scale(0.85)">
+            <ellipse cx="0" cy="10" rx="12" ry="10" fill="#5b21b6"/><circle cx="0" cy="-2" r="9" fill="#c084fc"/>
+            <circle cx="-3" cy="-4" r="1.5" fill="#1f2937"/><circle cx="3" cy="-4" r="1.5" fill="#1f2937"/>
+          </g>
+          <g transform="translate(118,232) scale(0.78)">
+            <ellipse cx="0" cy="9" rx="11" ry="9" fill="#0e7490"/><circle cx="0" cy="-1" r="8" fill="#22d3ee"/>
+            <circle cx="-2.5" cy="-3" r="1.4" fill="#1f2937"/><circle cx="2.5" cy="-3" r="1.4" fill="#1f2937"/>
+          </g>
+        </g>
+        <!-- Playable prize spheres -->
         <g class="claw-orbs" filter="url(#clawOrbShadow)">
-          <g transform="translate(112,188) scale(0.94)"><ellipse cx="0" cy="14" rx="22" ry="10" fill="#1a1008" opacity="0.65"/><circle r="20" fill="url(#clawOrb0)"/><ellipse cx="-7" cy="-8" rx="9" ry="5" fill="rgba(255,255,255,0.5)"/></g>
-          <g transform="translate(180,189)"><ellipse cx="0" cy="14" rx="22" ry="10" fill="#1a1008" opacity="0.65"/><circle r="20" fill="url(#clawOrb1)"/><ellipse cx="-7" cy="-8" rx="9" ry="5" fill="rgba(255,255,255,0.5)"/></g>
-          <g transform="translate(248,188) scale(0.94)"><ellipse cx="0" cy="14" rx="22" ry="10" fill="#1a1008" opacity="0.65"/><circle r="20" fill="url(#clawOrb2)"/><ellipse cx="-7" cy="-8" rx="9" ry="5" fill="rgba(255,255,255,0.5)"/></g>
+          <g transform="translate(112,196) scale(0.94)"><ellipse cx="0" cy="14" rx="22" ry="10" fill="#1a1008" opacity="0.65"/><circle r="20" fill="url(#clawOrb0)"/><ellipse cx="-7" cy="-8" rx="9" ry="5" fill="rgba(255,255,255,0.5)"/></g>
+          <g transform="translate(180,197)"><ellipse cx="0" cy="14" rx="22" ry="10" fill="#1a1008" opacity="0.65"/><circle r="20" fill="url(#clawOrb1)"/><ellipse cx="-7" cy="-8" rx="9" ry="5" fill="rgba(255,255,255,0.5)"/></g>
+          <g transform="translate(248,196) scale(0.94)"><ellipse cx="0" cy="14" rx="22" ry="10" fill="#1a1008" opacity="0.65"/><circle r="20" fill="url(#clawOrb2)"/><ellipse cx="-7" cy="-8" rx="9" ry="5" fill="rgba(255,255,255,0.5)"/></g>
         </g>
+        <rect x="30" y="82" width="300" height="202" fill="rgba(226,232,240,0.1)" pointer-events="none"/>
       </g>
       <rect x="30" y="82" width="300" height="202" rx="9" fill="url(#clawInteriorVignette)" pointer-events="none"/>
       <!-- Rail in perspective (narrower toward back) -->
@@ -660,11 +732,13 @@ function clawSvgMarkup() {
           </g>
         </g>
       </g>
-      <!-- Acrylic: sheen only (transparent center — claw stays crisp) -->
+      <!-- Acrylic / glass (reference: gray reflective panel) -->
+      <rect x="30" y="82" width="300" height="202" rx="9" fill="rgba(148,163,184,0.09)" pointer-events="none"/>
       <rect x="30" y="82" width="300" height="202" rx="9" fill="url(#clawAcrylicSheen)" pointer-events="none"/>
-      <rect x="30" y="82" width="300" height="202" rx="9" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1.5" pointer-events="none"/>
-      <path d="M 38 88 L 118 88 L 108 118 L 38 118 Z" fill="rgba(255,255,255,0.06)" pointer-events="none"/>
-      <line x1="44" y1="92" x2="300" y2="198" stroke="rgba(255,255,255,0.07)" stroke-width="1.5" pointer-events="none"/>
+      <rect x="30" y="82" width="300" height="202" rx="9" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="1.5" pointer-events="none"/>
+      <path d="M 38 88 L 118 88 L 108 118 L 38 118 Z" fill="rgba(255,255,255,0.1)" pointer-events="none"/>
+      <line x1="44" y1="92" x2="300" y2="198" stroke="rgba(255,255,255,0.12)" stroke-width="1.5" pointer-events="none"/>
+      <line x1="260" y1="95" x2="140" y2="205" stroke="rgba(255,255,255,0.05)" stroke-width="2.2" pointer-events="none"/>
     </svg>`;
 }
 
@@ -690,10 +764,14 @@ function openClawMachine(state, rerender) {
     <div class="modal claw-modal" role="dialog" aria-modal="true" aria-labelledby="claw-heading">
       <div class="modal-inner">
         <h3 id="claw-heading">Prize claw</h3>
-        <p class="claw-sub">${CLAW_UNLIMITED_TEST ? `Test play ${played} · Line up over a prize, then grab. Side and depth stay fixed perspective (no camera swing).` : `Play ${played} / ${CLAW_PLAYS_PER_DAY} · Aim side-to-side and front-to-back on the prize row, then grab.`}</p>
-        <div class="claw-stage-wrap claw-stage-3d">
-          ${clawSvgMarkup()}
-        </div>
+        <p class="claw-sub">${CLAW_UNLIMITED_TEST ? `Test play ${played} · Arcade-style booth: red pillars, marquee bulbs, plush pile on blue balls — line up and grab.` : `Play ${played} / ${CLAW_PLAYS_PER_DAY} · Line up on the prize row (side + depth), then grab.`}</p>
+        <div class="claw-cabinet">
+          <div class="claw-cabinet-bezel">
+            <div class="claw-stage-wrap claw-stage-3d">
+              ${clawSvgMarkup()}
+            </div>
+          </div>
+          <div class="claw-cabinet-plate">
         <div class="claw-deck">
           <div class="claw-deck-row">
             <div class="claw-pad" role="group" aria-label="Move claw">
@@ -718,6 +796,8 @@ function openClawMachine(state, rerender) {
               <span class="claw-fine-label">Depth</span>
               <input type="range" class="claw-slider claw-slider-z" id="clawSliderZ" min="0" max="100" value="${Math.round(clawZ * 100)}" step="1" aria-label="Fine tune depth"/>
             </div>
+          </div>
+        </div>
           </div>
         </div>
         <p class="claw-hint-keys" style="font-size:0.75rem;color:var(--text-secondary);margin-top:8px">Keys: <kbd>←</kbd><kbd>→</kbd> side · <kbd>↑</kbd><kbd>↓</kbd> depth · <kbd>Space</kbd> or <kbd>Enter</kbd> grab</p>
