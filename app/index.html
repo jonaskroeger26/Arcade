@@ -650,6 +650,7 @@
             position: absolute;
             inset: 4px;
             border-radius: 50%;
+            pointer-events: none;
             background: linear-gradient(145deg, #94a3b8 0%, #64748b 40%, #475569 100%);
             box-shadow:
                 inset 0 2px 4px rgba(255,255,255,0.45),
@@ -660,23 +661,11 @@
             position: absolute;
             inset: 14px;
             border-radius: 50%;
+            pointer-events: none;
             background: radial-gradient(circle at 35% 30%, #2a221c 0%, #0f0b09 70%);
             box-shadow: inset 0 4px 16px rgba(0,0,0,0.65);
         }
-        .claw-joystick-stick {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            width: 14px;
-            height: 36px;
-            margin-left: -7px;
-            margin-top: -48px;
-            border-radius: 6px;
-            background: linear-gradient(90deg, #71717a 0%, #e4e4e7 45%, #a1a1aa 100%);
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 3px 6px rgba(0,0,0,0.4);
-            pointer-events: none;
-        }
-        .claw-joystick-knob {
+        .claw-joystick-movable {
             position: absolute;
             left: 50%;
             top: 50%;
@@ -684,14 +673,45 @@
             height: 52px;
             margin-left: -26px;
             margin-top: -26px;
+            pointer-events: none;
+            transform: translate(0, 0);
+            will-change: transform;
+        }
+        .claw-joystick-stick {
+            position: absolute;
+            left: 50%;
+            bottom: 26px;
+            width: 14px;
+            height: 30px;
+            margin-left: -7px;
+            border-radius: 6px;
+            transform-origin: 50% 100%;
+            background: linear-gradient(90deg, #71717a 0%, #e4e4e7 45%, #a1a1aa 100%);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 3px 6px rgba(0,0,0,0.4);
+        }
+        .claw-joystick-knob {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 52px;
+            height: 52px;
             border-radius: 50%;
             background: radial-gradient(circle at 32% 28%, #fdba74 0%, #f97316 38%, #c2410c 100%);
             box-shadow:
                 inset 0 3px 6px rgba(255,255,255,0.35),
                 inset 0 -4px 10px rgba(0,0,0,0.35),
                 0 6px 14px rgba(0,0,0,0.45);
-            pointer-events: none;
         }
+        .claw-joystick-hit {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            z-index: 4;
+            cursor: grab;
+            touch-action: none;
+            background: transparent;
+        }
+        .claw-joystick:active .claw-joystick-hit { cursor: grabbing; }
         .claw-joystick-knob::after {
             content: '';
             position: absolute;
@@ -703,6 +723,7 @@
         /* Arcade GRAB button */
         .claw-arcade-grab {
             position: relative;
+            z-index: 2;
             flex: 1 1 160px;
             min-width: 140px;
             min-height: 112px;
@@ -715,6 +736,7 @@
             align-items: center;
             justify-content: center;
             filter: drop-shadow(0 8px 18px rgba(22,163,74,0.35));
+            -webkit-tap-highlight-color: transparent;
         }
         .claw-arcade-grab:disabled {
             cursor: not-allowed;
@@ -725,6 +747,7 @@
             position: absolute;
             inset: 0;
             border-radius: 50%;
+            pointer-events: none;
             background: linear-gradient(160deg, #4ade80 0%, #16a34a 35%, #14532d 100%);
             box-shadow:
                 inset 0 4px 0 rgba(255,255,255,0.35),
@@ -735,6 +758,7 @@
         .claw-arcade-grab-face {
             position: relative;
             z-index: 1;
+            pointer-events: none;
             font-size: 1.125rem;
             font-weight: 800;
             letter-spacing: 0.06em;

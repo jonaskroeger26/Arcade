@@ -777,8 +777,11 @@ async function openClawMachine(state, rerender) {
             <div class="claw-joystick" id="clawJoystick" role="application" aria-label="Drag to move the claw. Up and down: depth. Left and right: side.">
               <div class="claw-joystick-rim" aria-hidden="true"></div>
               <div class="claw-joystick-base" aria-hidden="true"></div>
-              <div class="claw-joystick-stick" aria-hidden="true"></div>
-              <div class="claw-joystick-knob" aria-hidden="true"></div>
+              <div class="claw-joystick-movable">
+                <div class="claw-joystick-stick" aria-hidden="true"></div>
+                <div class="claw-joystick-knob" aria-hidden="true"></div>
+              </div>
+              <div class="claw-joystick-hit" aria-hidden="true"></div>
             </div>
             <button type="button" class="claw-arcade-grab" id="clawDrop"><span class="claw-arcade-grab-ring" aria-hidden="true"></span><span class="claw-arcade-grab-face">GRAB</span></button>
           </div>
@@ -827,8 +830,8 @@ async function openClawMachine(state, rerender) {
   const orbGroups = overlay.querySelectorAll('.claw-orbs > g');
   const dropBtn = overlay.querySelector('#clawDrop');
   const joyBase = overlay.querySelector('#clawJoystick');
-  const joyKnob = overlay.querySelector('.claw-joystick-knob');
-  const joyStick = overlay.querySelector('.claw-joystick-stick');
+  const joyHit = overlay.querySelector('.claw-joystick-hit');
+  const joyMovable = overlay.querySelector('.claw-joystick-movable');
   const statusEl = overlay.querySelector('.claw-status');
   const resultBox = overlay.querySelector('.claw-result');
   const doneBtn = overlay.querySelector('#clawDone');
@@ -908,68 +911,81 @@ async function openClawMachine(state, rerender) {
     if (e.target === overlay && finished) closeModal();
   });
 
-  const JOY_RADIUS = 40;
-  const joySensX = 0.42;
-  const joySensZ = 0.0025;
+  const JOY_RADIUS = 38;
+  const joyMiddleX = (CLAW_SVG_X_MIN + CLAW_SVG_X_MAX) / 2;
+  const joyHalfRangeX = (CLAW_SVG_X_MAX - CLAW_SVG_X_MIN) / 2;
   let joyActive = false;
-  let joyPtrLastX = 0;
-  let joyPtrLastY = 0;
-  let joyKnobX = 0;
-  let joyKnobY = 0;
+  let joyCaptureEl = null;
 
-  function clampJoyKnob() {
-    const r = JOY_RADIUS;
-    const d = Math.hypot(joyKnobX, joyKnobY);
-    if (d > r) {
-      joyKnobX = (joyKnobX / d) * r;
-      joyKnobY = (joyKnobY / d) * r;
+  function joyRectCenter() {
+    const el = joyHit || joyBase;
+    if (!el) return { cx: 0, cy: 0 };
+    const r = el.getBoundingClientRect();
+    return { cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
+  }
+
+  function applyJoyFromClient(clientX, clientY) {
+    const { cx, cy } = joyRectCenter();
+    let dx = clientX - cx;
+    let dy = clientY - cy;
+    const d = Math.hypot(dx, dy);
+    if (d > JOY_RADIUS) {
+      dx = (dx / d) * JOY_RADIUS;
+      dy = (dy / d) * JOY_RADIUS;
     }
-    const t = `translate(calc(-50% + ${joyKnobX}px), calc(-50% + ${joyKnobY}px))`;
-    if (joyKnob) joyKnob.style.transform = t;
-    if (joyStick) joyStick.style.transform = t;
+    const nx = JOY_RADIUS > 0 ? dx / JOY_RADIUS : 0;
+    const ny = JOY_RADIUS > 0 ? dy / JOY_RADIUS : 0;
+    clawX = joyMiddleX + nx * joyHalfRangeX * 0.94;
+    clawZ = CLAW_Z_ORB_PLANE - ny * 0.44;
+    applyClawPose();
+    if (joyMovable) {
+      joyMovable.style.transition = 'none';
+      joyMovable.style.transform = `translate(${dx}px, ${dy}px)`;
+    }
+  }
+
+  function joySnapCenter() {
+    if (joyMovable) {
+      joyMovable.style.transition =
+        'transform 0.28s cubic-bezier(0.34, 1.45, 0.64, 1)';
+      joyMovable.style.transform = 'translate(0px, 0px)';
+    }
   }
 
   function joyEnd(ev) {
     if (!joyActive) return;
     joyActive = false;
     try {
-      if (ev && ev.pointerId != null) joyBase?.releasePointerCapture(ev.pointerId);
+      if (ev && ev.pointerId != null && joyCaptureEl) {
+        joyCaptureEl.releasePointerCapture(ev.pointerId);
+      }
     } catch (_) {}
-    joyKnobX = 0;
-    joyKnobY = 0;
-    clampJoyKnob();
+    joyCaptureEl = null;
+    joySnapCenter();
   }
 
-  if (joyBase && joyKnob) {
-    joyBase.addEventListener('pointerdown', (ev) => {
+  const joySurface = joyHit || joyBase;
+  if (joySurface && joyMovable) {
+    joySurface.addEventListener('pointerdown', (ev) => {
       if (phase !== 'aim' || finished) return;
+      ev.preventDefault();
       joyActive = true;
-      joyPtrLastX = ev.clientX;
-      joyPtrLastY = ev.clientY;
+      joyCaptureEl = joySurface;
       try {
-        joyBase.setPointerCapture(ev.pointerId);
+        joySurface.setPointerCapture(ev.pointerId);
       } catch (_) {}
+      applyJoyFromClient(ev.clientX, ev.clientY);
     });
-    joyBase.addEventListener('pointermove', (ev) => {
+    joySurface.addEventListener('pointermove', (ev) => {
       if (!joyActive) return;
-      const ddx = ev.clientX - joyPtrLastX;
-      const ddy = ev.clientY - joyPtrLastY;
-      joyPtrLastX = ev.clientX;
-      joyPtrLastY = ev.clientY;
-      clawX += ddx * joySensX;
-      clawZ -= ddy * joySensZ;
-      joyKnobX += ddx * 0.48;
-      joyKnobY += ddy * 0.48;
-      clampJoyKnob();
-      applyClawPose();
+      applyJoyFromClient(ev.clientX, ev.clientY);
     });
-    joyBase.addEventListener('pointerup', joyEnd);
-    joyBase.addEventListener('pointercancel', joyEnd);
-    joyBase.addEventListener('lostpointercapture', () => {
+    joySurface.addEventListener('pointerup', joyEnd);
+    joySurface.addEventListener('pointercancel', joyEnd);
+    joySurface.addEventListener('lostpointercapture', () => {
       joyActive = false;
-      joyKnobX = 0;
-      joyKnobY = 0;
-      clampJoyKnob();
+      joyCaptureEl = null;
+      joySnapCenter();
     });
   }
 
@@ -1010,8 +1026,6 @@ async function openClawMachine(state, rerender) {
   dropBtn.addEventListener('click', () => {
     if (phase !== 'aim') return;
     phase = 'dropping';
-    sliderX.disabled = true;
-    sliderZ.disabled = true;
     dropBtn.disabled = true;
     if (joyBase) joyBase.classList.add('claw-joystick--disabled');
 
