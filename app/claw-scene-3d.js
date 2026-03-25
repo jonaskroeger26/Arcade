@@ -12,6 +12,10 @@ function easeOutCubic(t) {
   return 1 - (1 - t) ** 3;
 }
 
+function easeInCubic(t) {
+  return t * t * t;
+}
+
 function easeInOutCubic(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 }
@@ -50,6 +54,8 @@ function emissiveBulb(color, warm = false) {
  *   setCordRetracted: () => void,
  *   runDropAnimation: (catchRes: { caught: boolean; prizeIdx: number; kind: string }) => Promise<void>,
  *   resetAfterMiss: () => void,
+ *   playChuteDrop: () => Promise<void>,
+ *   returnArmToStart: (targetClawX: number, targetClawZ: number) => Promise<void>,
  *   dispose: () => void,
  * }}
  */
@@ -423,6 +429,42 @@ export function createClawScene3D(host, opts) {
       });
       setProngClose(0);
       setCordRetracted();
+    },
+
+    async playChuteDrop() {
+      if (!caughtMesh.visible) return;
+      caughtMesh.updateWorldMatrix(true, true);
+      scene.attach(caughtMesh);
+      const p0 = caughtMesh.position.clone();
+      const p1 = new THREE.Vector3(-0.9, -0.28, 0.36);
+      await tween(920, (u) => {
+        const e = easeInCubic(u);
+        caughtMesh.position.lerpVectors(p0, p1, e);
+        const s = 1 - 0.5 * e;
+        caughtMesh.scale.setScalar(s);
+        caughtMesh.material.opacity = Math.max(0, 1 - 0.94 * e);
+      });
+      caughtMesh.visible = false;
+      caughtMesh.scale.setScalar(1);
+      caughtMesh.material.opacity = 1;
+      hand.attach(caughtMesh);
+      caughtMesh.position.set(0, -0.1, 0);
+    },
+
+    async returnArmToStart(targetClawX, targetClawZ) {
+      const tx = svgXToWorld(targetClawX, svgMin, svgMax);
+      const tz = worldZFromClawZ(targetClawZ);
+      const targetSc = 1 - targetClawZ * 0.08;
+      const sx = gantryRoot.position.x;
+      const sz = gantryRoot.position.z;
+      const ss = gantryRoot.scale.x;
+      await tween(680, (u) => {
+        const e = easeOutCubic(u);
+        gantryRoot.position.x = THREE.MathUtils.lerp(sx, tx, e);
+        gantryRoot.position.z = THREE.MathUtils.lerp(sz, tz, e);
+        const sc = THREE.MathUtils.lerp(ss, targetSc, e);
+        gantryRoot.scale.set(sc, 1, sc);
+      });
     },
 
     dispose() {

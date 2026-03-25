@@ -774,33 +774,18 @@ async function openClawMachine(state, rerender) {
           <div class="claw-cabinet-plate">
         <div class="claw-deck">
           <div class="claw-deck-row">
-            <div class="claw-pad" role="group" aria-label="Move claw">
-              <span class="claw-pad-spacer" aria-hidden="true"></span>
-              <button type="button" class="claw-pad-btn btn-secondary claw-nudge claw-nudge-z" data-z="-1" aria-label="Toward front">▲</button>
-              <span class="claw-pad-spacer" aria-hidden="true"></span>
-              <button type="button" class="claw-pad-btn btn-secondary claw-nudge claw-nudge-x" data-x="-1" aria-label="Move left">◀</button>
-              <span class="claw-pad-center" aria-hidden="true"></span>
-              <button type="button" class="claw-pad-btn btn-secondary claw-nudge claw-nudge-x" data-x="1" aria-label="Move right">▶</button>
-              <span class="claw-pad-spacer" aria-hidden="true"></span>
-              <button type="button" class="claw-pad-btn btn-secondary claw-nudge claw-nudge-z" data-z="1" aria-label="Toward back">▼</button>
-              <span class="claw-pad-spacer" aria-hidden="true"></span>
+            <div class="claw-joystick" id="clawJoystick" role="application" aria-label="Drag to move the claw. Up and down: depth. Left and right: side.">
+              <div class="claw-joystick-rim" aria-hidden="true"></div>
+              <div class="claw-joystick-base" aria-hidden="true"></div>
+              <div class="claw-joystick-stick" aria-hidden="true"></div>
+              <div class="claw-joystick-knob" aria-hidden="true"></div>
             </div>
-            <button type="button" class="btn-primary claw-grab-btn" id="clawDrop">Grab</button>
-          </div>
-          <div class="claw-deck-fine">
-            <div class="claw-fine-row">
-              <span class="claw-fine-label">Side</span>
-              <input type="range" class="claw-slider" id="clawSliderX" min="${CLAW_SVG_X_MIN}" max="${CLAW_SVG_X_MAX}" value="${Math.round(clawX)}" step="1" aria-label="Fine tune left-right"/>
-            </div>
-            <div class="claw-fine-row">
-              <span class="claw-fine-label">Depth</span>
-              <input type="range" class="claw-slider claw-slider-z" id="clawSliderZ" min="0" max="100" value="${Math.round(clawZ * 100)}" step="1" aria-label="Fine tune depth"/>
-            </div>
+            <button type="button" class="claw-arcade-grab" id="clawDrop"><span class="claw-arcade-grab-ring" aria-hidden="true"></span><span class="claw-arcade-grab-face">GRAB</span></button>
           </div>
         </div>
           </div>
         </div>
-        <p class="claw-hint-keys" style="font-size:0.75rem;color:var(--text-secondary);margin-top:8px">Keys: <kbd>←</kbd><kbd>→</kbd> side · <kbd>↑</kbd><kbd>↓</kbd> depth · <kbd>Space</kbd> or <kbd>Enter</kbd> grab</p>
+        <p class="claw-hint-keys" style="font-size:0.75rem;color:var(--text-secondary);margin-top:8px">Joystick: drag to move · Keys: <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> · <kbd>Space</kbd> / <kbd>Enter</kbd> GRAB</p>
         <p class="claw-status" style="min-height:1.2em;font-size:0.8125rem;color:var(--text-secondary);margin-top:10px"></p>
         <div class="claw-result">
           <div class="result-title"></div>
@@ -840,9 +825,10 @@ async function openClawMachine(state, rerender) {
   const hookR = overlay.querySelector('#clawHookR');
   const caughtOrbEl = overlay.querySelector('#clawCaughtOrb');
   const orbGroups = overlay.querySelectorAll('.claw-orbs > g');
-  const sliderX = overlay.querySelector('#clawSliderX');
-  const sliderZ = overlay.querySelector('#clawSliderZ');
   const dropBtn = overlay.querySelector('#clawDrop');
+  const joyBase = overlay.querySelector('#clawJoystick');
+  const joyKnob = overlay.querySelector('.claw-joystick-knob');
+  const joyStick = overlay.querySelector('.claw-joystick-stick');
   const statusEl = overlay.querySelector('.claw-status');
   const resultBox = overlay.querySelector('.claw-result');
   const doneBtn = overlay.querySelector('#clawDone');
@@ -854,8 +840,6 @@ async function openClawMachine(state, rerender) {
     hookR &&
     caughtOrbEl &&
     orbGroups.length === 3 &&
-    sliderX &&
-    sliderZ &&
     dropBtn;
   const mode3d = !!sceneApi;
   if (!mode3d && !svgReady) {
@@ -871,7 +855,7 @@ async function openClawMachine(state, rerender) {
     rerender();
     return;
   }
-  if (mode3d && (!sliderX || !sliderZ || !dropBtn)) {
+  if (mode3d && !dropBtn) {
     sceneApi?.dispose();
     const cr = resolveClawCatch(clawX, clawZ);
     if (cr.caught) {
@@ -908,8 +892,6 @@ async function openClawMachine(state, rerender) {
       gantry.setAttribute('transform', `translate(${clawX}, ${gy})`);
       if (gantryScale) gantryScale.setAttribute('transform', `scale(${gs})`);
     }
-    sliderX.value = String(Math.round(clawX));
-    sliderZ.value = String(Math.round(clawZ * 100));
   }
 
   applyClawPose();
@@ -926,28 +908,70 @@ async function openClawMachine(state, rerender) {
     if (e.target === overlay && finished) closeModal();
   });
 
-  sliderX.addEventListener('input', () => {
-    clawX = Number(sliderX.value);
-    applyClawPose();
-  });
-  sliderZ.addEventListener('input', () => {
-    clawZ = Number(sliderZ.value) / 100;
-    applyClawPose();
-  });
-  overlay.querySelectorAll('.claw-nudge-x').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const d = Number(btn.getAttribute('data-x'));
-      clawX += d * 6;
+  const JOY_RADIUS = 40;
+  const joySensX = 0.42;
+  const joySensZ = 0.0025;
+  let joyActive = false;
+  let joyPtrLastX = 0;
+  let joyPtrLastY = 0;
+  let joyKnobX = 0;
+  let joyKnobY = 0;
+
+  function clampJoyKnob() {
+    const r = JOY_RADIUS;
+    const d = Math.hypot(joyKnobX, joyKnobY);
+    if (d > r) {
+      joyKnobX = (joyKnobX / d) * r;
+      joyKnobY = (joyKnobY / d) * r;
+    }
+    const t = `translate(calc(-50% + ${joyKnobX}px), calc(-50% + ${joyKnobY}px))`;
+    if (joyKnob) joyKnob.style.transform = t;
+    if (joyStick) joyStick.style.transform = t;
+  }
+
+  function joyEnd(ev) {
+    if (!joyActive) return;
+    joyActive = false;
+    try {
+      if (ev && ev.pointerId != null) joyBase?.releasePointerCapture(ev.pointerId);
+    } catch (_) {}
+    joyKnobX = 0;
+    joyKnobY = 0;
+    clampJoyKnob();
+  }
+
+  if (joyBase && joyKnob) {
+    joyBase.addEventListener('pointerdown', (ev) => {
+      if (phase !== 'aim' || finished) return;
+      joyActive = true;
+      joyPtrLastX = ev.clientX;
+      joyPtrLastY = ev.clientY;
+      try {
+        joyBase.setPointerCapture(ev.pointerId);
+      } catch (_) {}
+    });
+    joyBase.addEventListener('pointermove', (ev) => {
+      if (!joyActive) return;
+      const ddx = ev.clientX - joyPtrLastX;
+      const ddy = ev.clientY - joyPtrLastY;
+      joyPtrLastX = ev.clientX;
+      joyPtrLastY = ev.clientY;
+      clawX += ddx * joySensX;
+      clawZ -= ddy * joySensZ;
+      joyKnobX += ddx * 0.48;
+      joyKnobY += ddy * 0.48;
+      clampJoyKnob();
       applyClawPose();
     });
-  });
-  overlay.querySelectorAll('.claw-nudge-z').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const d = Number(btn.getAttribute('data-z'));
-      clawZ += d * 0.07;
-      applyClawPose();
+    joyBase.addEventListener('pointerup', joyEnd);
+    joyBase.addEventListener('pointercancel', joyEnd);
+    joyBase.addEventListener('lostpointercapture', () => {
+      joyActive = false;
+      joyKnobX = 0;
+      joyKnobY = 0;
+      clampJoyKnob();
     });
-  });
+  }
 
   function onKey(ev) {
     if (phase !== 'aim') return;
@@ -989,9 +1013,7 @@ async function openClawMachine(state, rerender) {
     sliderX.disabled = true;
     sliderZ.disabled = true;
     dropBtn.disabled = true;
-    overlay.querySelectorAll('.claw-nudge').forEach((b) => {
-      b.disabled = true;
-    });
+    if (joyBase) joyBase.classList.add('claw-joystick--disabled');
 
     const catchRes = resolveClawCatch(clawX, clawZ);
     const prizeIdx = catchRes.prizeIdx;
@@ -1017,6 +1039,10 @@ async function openClawMachine(state, rerender) {
           await sceneApi.runDropAnimation(catchRes);
           if (!catchRes.caught) {
             sceneApi.resetAfterMiss();
+            clawX = (CLAW_SVG_X_MIN + CLAW_SVG_X_MAX) / 2;
+            clawZ = CLAW_Z_ORB_PLANE;
+            statusEl.textContent = 'Returning home…';
+            await sceneApi.returnArmToStart(clawX, clawZ);
             const missTitle = catchRes.kind === 'wide' ? 'Complete miss' : 'Slipped free';
             const missBody =
               catchRes.kind === 'wide'
@@ -1025,6 +1051,8 @@ async function openClawMachine(state, rerender) {
             showResult(missTitle, missBody, 'No prize');
             return;
           }
+          statusEl.textContent = 'Dispensing prize…';
+          await sceneApi.playChuteDrop();
           statusEl.textContent = '';
           outcome.apply(state);
           saveState(state);
@@ -1090,6 +1118,9 @@ async function openClawMachine(state, rerender) {
             { duration: 920, easing: easeLift, fill: 'forwards' },
           ).finished;
           cordPack.style.transform = `scaleY(${CORD_SCALE_RAISED})`;
+          clawX = (CLAW_SVG_X_MIN + CLAW_SVG_X_MAX) / 2;
+          clawZ = CLAW_Z_ORB_PLANE;
+          applyClawPose();
           const missTitle = catchRes.kind === 'wide' ? 'Complete miss' : 'Slipped free';
           const missBody =
             catchRes.kind === 'wide'
