@@ -132,6 +132,8 @@ const RUSH_COOLDOWN_MS = 120_000;
 const CABINET_MAX_LEVEL = 10;
 const LEVEL_INCOME_PER_LVL = 0.12;
 const CLAW_PLAYS_PER_DAY = 5;
+/** Set `false` for production — removes the daily claw cap. */
+const CLAW_UNLIMITED_TEST = true;
 
 function uid() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
@@ -463,7 +465,7 @@ function rollClawOutcome() {
 
 function openClawMachine(state, rerender) {
   ensureClawDay(state);
-  if (state.claw.plays >= CLAW_PLAYS_PER_DAY) {
+  if (!CLAW_UNLIMITED_TEST && state.claw.plays >= CLAW_PLAYS_PER_DAY) {
     toast('Daily claw plays are exhausted. Resets at midnight UTC.', true);
     return;
   }
@@ -482,7 +484,7 @@ function openClawMachine(state, rerender) {
     <div class="modal claw-modal" role="dialog" aria-modal="true" aria-labelledby="claw-heading">
       <div class="modal-inner">
         <h3 id="claw-heading">Prize claw</h3>
-        <p class="claw-sub">Play ${played} of ${CLAW_PLAYS_PER_DAY} today · Outcome is sealed when the grab completes</p>
+        <p class="claw-sub">${CLAW_UNLIMITED_TEST ? `Play ${played} today · unlimited test · outcome is sealed when the grab completes` : `Play ${played} of ${CLAW_PLAYS_PER_DAY} today · Outcome is sealed when the grab completes`}</p>
         <div class="claw-stage-wrap">
           <div class="claw-stage">
             <div class="claw-beam"></div>
@@ -751,9 +753,13 @@ function render(state, root) {
   const rushCd = Date.now() < state.rushCooldownUntil;
   const setMult = setMultiplier(state.machines);
 
-  const clawLeft = Math.max(0, CLAW_PLAYS_PER_DAY - state.claw.plays);
-  const clawLabel =
-    clawLeft === 0
+  const clawLeft = CLAW_UNLIMITED_TEST
+    ? Number.POSITIVE_INFINITY
+    : Math.max(0, CLAW_PLAYS_PER_DAY - state.claw.plays);
+  const clawExhausted = !CLAW_UNLIMITED_TEST && clawLeft === 0;
+  const clawLabel = CLAW_UNLIMITED_TEST
+    ? 'Prize claw · Unlimited (test)'
+    : clawLeft === 0
       ? 'Prize claw · Available tomorrow (UTC)'
       : `Prize claw · ${clawLeft} of ${CLAW_PLAYS_PER_DAY} plays remaining`;
 
@@ -851,7 +857,7 @@ function render(state, root) {
             <button type="button" class="btn-primary" id="btnExpand" ${canExpand ? '' : 'disabled'}>
               Expand floor · ${expandCost}¢ (${state.slotCount}/${SLOT_MAX})
             </button>
-            <button type="button" class="btn-claw" id="btnClaw" ${clawLeft === 0 ? 'disabled' : ''}>${clawLabel}</button>
+            <button type="button" class="btn-claw" id="btnClaw" ${clawExhausted ? 'disabled' : ''}>${clawLabel}</button>
           </div>
           <section class="home-machines-section">
             <h2>Your machines</h2>
@@ -887,8 +893,8 @@ function render(state, root) {
                     </svg>
                     <div style="flex:1;min-width:0">
                       <div class="claw-label">Lobby prize claw</div>
-                      <p class="claw-hint">${CLAW_PLAYS_PER_DAY} free plays per day (UTC), animated pickup sequence.</p>
-                      <button type="button" class="btn-secondary" id="clawBoothBtn" style="margin-top:10px;width:100%" ${clawLeft === 0 ? 'disabled' : ''}>Run prize claw</button>
+                      <p class="claw-hint">${CLAW_UNLIMITED_TEST ? 'Unlimited plays (test). ' : `${CLAW_PLAYS_PER_DAY} free plays per day (UTC). `}Animated pickup sequence.</p>
+                      <button type="button" class="btn-secondary" id="clawBoothBtn" style="margin-top:10px;width:100%" ${clawExhausted ? 'disabled' : ''}>Run prize claw</button>
                     </div>
                   </div>
                 </div>
@@ -1102,17 +1108,21 @@ function boot() {
         rushBtn.textContent = rush ? 'Rush active' : cd ? 'Rush cooling…' : 'Rush hour (1 ticket)';
       }
       ensureClawDay(state);
-      const left = Math.max(0, CLAW_PLAYS_PER_DAY - state.claw.plays);
+      const left = CLAW_UNLIMITED_TEST
+        ? Number.POSITIVE_INFINITY
+        : Math.max(0, CLAW_PLAYS_PER_DAY - state.claw.plays);
+      const clawDead = !CLAW_UNLIMITED_TEST && left === 0;
       const clawBtn = document.getElementById('btnClaw');
       if (clawBtn) {
-        clawBtn.disabled = left === 0;
-        clawBtn.textContent =
-          left === 0
+        clawBtn.disabled = clawDead;
+        clawBtn.textContent = CLAW_UNLIMITED_TEST
+          ? 'Prize claw · Unlimited (test)'
+          : left === 0
             ? 'Prize claw · Available tomorrow (UTC)'
             : `Prize claw · ${left} of ${CLAW_PLAYS_PER_DAY} plays remaining`;
       }
       const boothClaw = document.getElementById('clawBoothBtn');
-      if (boothClaw) boothClaw.disabled = left === 0;
+      if (boothClaw) boothClaw.disabled = clawDead;
     }
     requestAnimationFrame(loop);
   }
