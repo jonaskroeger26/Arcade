@@ -576,22 +576,86 @@
             shape-rendering: geometricPrecision;
             filter: drop-shadow(0 14px 22px rgba(0,0,0,0.38));
         }
-        .claw-controls {
-            display: flex;
-            flex-direction: column;
-            align-items: stretch;
-            gap: 10px;
+        .claw-deck {
             margin-top: 14px;
+            padding: 14px 14px 12px;
+            border-radius: 12px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
         }
-        .claw-controls-row {
+        .claw-deck-row {
             display: flex;
             flex-wrap: wrap;
+            align-items: stretch;
+            gap: 12px;
+        }
+        .claw-pad {
+            display: grid;
+            grid-template-columns: 44px 44px 44px;
+            grid-template-rows: 44px 44px 44px;
+            gap: 6px;
+            flex: 0 0 auto;
+        }
+        .claw-pad-spacer { pointer-events: none; }
+        .claw-pad-center {
+            border-radius: 8px;
+            background: rgba(39,39,42,0.45);
+            border: 1px dashed var(--border);
+            align-self: stretch;
+        }
+        .claw-pad-btn {
+            padding: 0;
+            min-width: 44px;
+            min-height: 44px;
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            font-size: 0.875rem;
+            line-height: 1;
+            display: inline-flex;
             align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+        }
+        .claw-pad-btn:hover:not(:disabled) {
+            color: var(--text);
+        }
+        .claw-grab-btn {
+            flex: 1 1 140px;
+            min-height: 44px;
+            align-self: stretch;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.9375rem;
+            letter-spacing: 0.04em;
+            background: linear-gradient(180deg, #34d399 0%, var(--success) 100%);
+            border: 1px solid rgba(34,197,94,0.65);
+            box-shadow: 0 1px 0 rgba(255,255,255,0.12) inset, 0 8px 20px rgba(22,163,74,0.2);
+        }
+        .claw-grab-btn:hover:not(:disabled) {
+            filter: brightness(1.05);
+        }
+        .claw-grab-btn:disabled {
+            opacity: 0.55;
+            box-shadow: none;
+        }
+        .claw-deck-fine {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
             gap: 8px;
+        }
+        .claw-fine-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
             width: 100%;
         }
-        .claw-axis-label {
-            flex: 0 0 48px;
+        .claw-fine-label {
+            flex: 0 0 44px;
             font-size: 0.625rem;
             font-weight: 700;
             text-transform: uppercase;
@@ -599,25 +663,13 @@
             color: var(--text-secondary);
         }
         .claw-slider {
-            flex: 1 1 120px;
-            min-width: 80px;
+            flex: 1 1 auto;
+            min-width: 0;
             accent-color: var(--accent);
             height: 6px;
             cursor: pointer;
         }
-        .claw-slider-z { min-width: 100px; }
-        .claw-nudge {
-            padding: 8px 12px;
-            min-width: 44px;
-            font-size: 0.8125rem;
-        }
-        .claw-nudge-z {
-            min-width: 0;
-            flex: 0 1 auto;
-            font-size: 0.75rem;
-            padding: 8px 10px;
-        }
-        .claw-drop-wide { width: 100%; justify-content: center; margin-top: 2px; }
+        .claw-slider-z { min-width: 0; }
         .claw-hint-keys kbd {
             font-family: ui-monospace, monospace;
             font-size: 0.6875rem;

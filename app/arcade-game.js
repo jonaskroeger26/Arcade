@@ -508,22 +508,16 @@ function rollClawReward(prizeIdx) {
 function clawSvgMarkup() {
   const [c0, c1, c2] = CLAW_PIT_COLORS;
   return `
-    <svg class="claw-svg" viewBox="0 0 412 346" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <svg class="claw-svg" viewBox="0 0 412 302" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs>
-        <linearGradient id="clawCabBody" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#7f1d1d"/><stop offset="22%" stop-color="#b91c1c"/><stop offset="50%" stop-color="#991b1b"/><stop offset="78%" stop-color="#7f1d1d"/><stop offset="100%" stop-color="#450a0a"/>
+        <linearGradient id="clawPillarL" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#450a0a"/><stop offset="45%" stop-color="#b91c1c"/><stop offset="100%" stop-color="#7f1d1d"/>
         </linearGradient>
-        <linearGradient id="clawCabSide" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stop-color="#3f0f0f"/><stop offset="50%" stop-color="#7f1d1d"/><stop offset="100%" stop-color="#2a0a0a"/>
+        <linearGradient id="clawPillarR" x1="100%" y1="0%" x2="0%" y2="0%">
+          <stop offset="0%" stop-color="#450a0a"/><stop offset="45%" stop-color="#b91c1c"/><stop offset="100%" stop-color="#7f1d1d"/>
         </linearGradient>
-        <linearGradient id="clawCabRightFace" x1="0%" y1="30%" x2="100%" y2="70%">
-          <stop offset="0%" stop-color="#450a0a"/><stop offset="50%" stop-color="#5c0c0c"/><stop offset="100%" stop-color="#2a0606"/>
-        </linearGradient>
-        <linearGradient id="clawCabTopFace" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="#9f1239"/><stop offset="100%" stop-color="#6b1010"/>
-        </linearGradient>
-        <linearGradient id="clawHeaderChrome" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="#fafafa"/><stop offset="35%" stop-color="#a1a1aa"/><stop offset="70%" stop-color="#71717a"/><stop offset="100%" stop-color="#3f3f46"/>
+        <linearGradient id="clawArchGrad" x1="50%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%" stop-color="#991b1b"/><stop offset="100%" stop-color="#7f1d1d"/>
         </linearGradient>
         <linearGradient id="clawVoid" x1="50%" y1="0%" x2="50%" y2="100%">
           <stop offset="0%" stop-color="#1c1917"/><stop offset="55%" stop-color="#0f0e0d"/><stop offset="100%" stop-color="#050403"/>
@@ -546,18 +540,18 @@ function clawSvgMarkup() {
         <clipPath id="clawChamberClip">
           <rect x="30" y="82" width="300" height="202" rx="9"/>
         </clipPath>
-        <linearGradient id="clawDeckPlastic" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="#262626"/><stop offset="100%" stop-color="#0a0a0a"/>
-        </linearGradient>
         <linearGradient id="clawRailMetal" x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stop-color="#f4f4f5"/><stop offset="45%" stop-color="#a1a1aa"/><stop offset="100%" stop-color="#52525b"/>
         </linearGradient>
         <linearGradient id="clawChromeClaw" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#f4f4f5"/><stop offset="50%" stop-color="#94a3b8"/><stop offset="100%" stop-color="#475569"/>
+          <stop offset="0%" stop-color="#ecfeff"/><stop offset="45%" stop-color="#22d3ee"/><stop offset="100%" stop-color="#0e7490"/>
         </linearGradient>
         <linearGradient id="clawCordGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stop-color="#57534e"/><stop offset="35%" stop-color="#e7e5e4"/><stop offset="50%" stop-color="#fafaf9"/><stop offset="65%" stop-color="#e7e5e4"/><stop offset="100%" stop-color="#57534e"/>
+          <stop offset="0%" stop-color="#164e63"/><stop offset="35%" stop-color="#67e8f9"/><stop offset="50%" stop-color="#a5f3fc"/><stop offset="65%" stop-color="#67e8f9"/><stop offset="100%" stop-color="#164e63"/>
         </linearGradient>
+        <radialGradient id="clawBallBlue" cx="32%" cy="28%" r="68%">
+          <stop offset="0%" stop-color="#bae6fd"/><stop offset="45%" stop-color="#0284c7"/><stop offset="100%" stop-color="#0c4a6e"/>
+        </radialGradient>
         <linearGradient id="clawAcrylicSheen" x1="15%" y1="0%" x2="85%" y2="100%">
           <stop offset="0%" stop-color="rgba(255,255,255,0.14)"/><stop offset="25%" stop-color="rgba(255,255,255,0.02)"/><stop offset="55%" stop-color="rgba(255,255,255,0)"/><stop offset="85%" stop-color="rgba(180,200,230,0.06)"/><stop offset="100%" stop-color="rgba(255,255,255,0.05)"/>
         </linearGradient>
@@ -574,21 +568,22 @@ function clawSvgMarkup() {
           <feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
         </filter>
       </defs>
-      <!-- Fixed-view 3D cabinet (no CSS camera): front + top + right faces -->
+      <!-- First-person booth shell: converging pillars + arch (reference-inspired, restrained) -->
+      <rect width="412" height="302" fill="#09090b"/>
       <g filter="url(#clawCabShadow)">
-        <path d="M 338 52 L 402 34 L 402 286 L 338 304 Z" fill="url(#clawCabRightFace)" stroke="#2a0606" stroke-width="0.75"/>
-        <path d="M 16 34 L 338 52 L 402 34 L 86 32 Z" fill="url(#clawCabTopFace)" stroke="#3f0f0f" stroke-width="0.6"/>
-        <rect x="16" y="34" width="322" height="270" rx="17" fill="url(#clawCabBody)" stroke="#271212" stroke-width="1.5"/>
-        <path d="M 22 48 Q 180 42 336 48" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="1"/>
-        <path d="M 26 292 Q 180 300 328 292" fill="none" stroke="rgba(0,0,0,0.4)" stroke-width="1.5"/>
+        <path d="M 0 302 L 52 58 L 64 58 L 18 302 Z" fill="url(#clawPillarL)"/>
+        <path d="M 412 302 L 360 58 L 348 58 L 394 302 Z" fill="url(#clawPillarR)"/>
+        <path d="M 52 58 L 360 58 L 352 44 L 60 44 Z" fill="url(#clawArchGrad)" stroke="#450a0a" stroke-width="0.6"/>
       </g>
-      <!-- Chrome header / marquee (on front plane only) -->
-      <rect x="28" y="42" width="300" height="40" rx="8" fill="url(#clawHeaderChrome)" stroke="#3f3f46" stroke-width="1"/>
-      <rect x="42" y="50" width="272" height="16" rx="4" fill="#18181b" stroke="#27272a"/>
-      <rect x="50" y="54" width="256" height="6" rx="2" fill="#fbbf24" opacity="0.35"/>
-      <rect x="54" y="70" width="248" height="8" rx="2" fill="rgba(0,0,0,0.35)"/>
-      <!-- Window gasket (rubber surround) -->
-      <rect x="18" y="78" width="318" height="218" rx="12" fill="#171717"/>
+      <g fill="#fbbf24" opacity="0.9">
+        <circle cx="58" cy="210" r="2.2"/><circle cx="54" cy="174" r="2"/><circle cx="50" cy="138" r="2.2"/><circle cx="47" cy="102" r="2"/>
+        <circle cx="354" cy="210" r="2.2"/><circle cx="358" cy="174" r="2"/><circle cx="362" cy="138" r="2.2"/><circle cx="365" cy="102" r="2"/>
+      </g>
+      <g fill="#fef9c3" opacity="0.55">
+        <circle cx="61" cy="192" r="1.6"/><circle cx="57" cy="156" r="1.5"/><circle cx="351" cy="192" r="1.6"/><circle cx="355" cy="156" r="1.5"/>
+      </g>
+      <!-- Window gasket -->
+      <rect x="18" y="74" width="318" height="222" rx="12" fill="#171717"/>
       <rect x="22" y="82" width="310" height="210" rx="10" fill="#0a0a0a" stroke="#27272a" stroke-width="1"/>
       <!-- Perspective chamber inside glass (fixed eye point — not a tilted texture) -->
       <g clip-path="url(#clawChamberClip)">
@@ -611,6 +606,16 @@ function clawSvgMarkup() {
         <ellipse cx="180" cy="225" rx="108" ry="17" fill="#3d3228" opacity="0.9" transform="skewX(-5)"/>
         <ellipse cx="180" cy="218" rx="92" ry="11" fill="#52463b" opacity="0.65" transform="skewX(-4)"/>
         <ellipse cx="180" cy="212" rx="76" ry="7" fill="rgba(251,191,36,0.08)" transform="skewX(-3)"/>
+        <!-- Base filler spheres (prize pit bed) -->
+        <g opacity="0.88">
+          <ellipse cx="68" cy="256" rx="11" ry="5" fill="#0c4a6e"/><circle cx="68" cy="248" r="9" fill="url(#clawBallBlue)"/>
+          <ellipse cx="118" cy="258" rx="11" ry="5" fill="#0c4a6e"/><circle cx="118" cy="250" r="9" fill="url(#clawBallBlue)"/>
+          <ellipse cx="168" cy="259" rx="11" ry="5" fill="#0c4a6e"/><circle cx="168" cy="251" r="9" fill="url(#clawBallBlue)"/>
+          <ellipse cx="192" cy="259" rx="11" ry="5" fill="#0c4a6e"/><circle cx="192" cy="251" r="9" fill="url(#clawBallBlue)"/>
+          <ellipse cx="216" cy="259" rx="11" ry="5" fill="#0c4a6e"/><circle cx="216" cy="251" r="9" fill="url(#clawBallBlue)"/>
+          <ellipse cx="268" cy="258" rx="11" ry="5" fill="#0c4a6e"/><circle cx="268" cy="250" r="9" fill="url(#clawBallBlue)"/>
+          <ellipse cx="292" cy="256" rx="11" ry="5" fill="#0c4a6e"/><circle cx="292" cy="248" r="9" fill="url(#clawBallBlue)"/>
+        </g>
         <!-- Prizes on prize row (slightly smaller at sides = depth cue) -->
         <g class="claw-orbs" filter="url(#clawOrbShadow)">
           <g transform="translate(112,188) scale(0.94)"><ellipse cx="0" cy="14" rx="22" ry="10" fill="#1a1008" opacity="0.65"/><circle r="20" fill="url(#clawOrb0)"/><ellipse cx="-7" cy="-8" rx="9" ry="5" fill="rgba(255,255,255,0.5)"/></g>
@@ -640,7 +645,7 @@ function clawSvgMarkup() {
               <g id="clawGrabber" transform="translate(0, 104)">
                 <circle cx="0" cy="2" r="9" fill="url(#clawChromeClaw)" stroke="#64748b" stroke-width="0.75"/>
                 <ellipse cx="-3" cy="-1" rx="3" ry="2" fill="rgba(255,255,255,0.35)"/>
-                <rect x="-13" y="-2" width="26" height="11" rx="3" fill="#64748b" stroke="url(#clawChromeClaw)" stroke-width="0.85"/>
+                <rect x="-13" y="-2" width="26" height="11" rx="3" fill="#0e7490" stroke="url(#clawChromeClaw)" stroke-width="0.85"/>
                 <g id="clawHookL" style="transform-origin: -13px 6px">
                   <path d="M -13 6 L -14 24 Q -14 29 -6 27 L -3 22" fill="none" stroke="url(#clawChromeClaw)" stroke-width="3.8" stroke-linecap="round"/>
                   <path d="M -13 6 L -14 24 Q -14 29 -6 27" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="1.2" stroke-linecap="round"/>
@@ -660,15 +665,6 @@ function clawSvgMarkup() {
       <rect x="30" y="82" width="300" height="202" rx="9" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1.5" pointer-events="none"/>
       <path d="M 38 88 L 118 88 L 108 118 L 38 118 Z" fill="rgba(255,255,255,0.06)" pointer-events="none"/>
       <line x1="44" y1="92" x2="300" y2="198" stroke="rgba(255,255,255,0.07)" stroke-width="1.5" pointer-events="none"/>
-      <!-- Control deck (front panel) -->
-      <rect x="20" y="302" width="316" height="40" rx="8" fill="url(#clawDeckPlastic)" stroke="#27272a" stroke-width="1"/>
-      <rect x="152" y="310" width="64" height="22" rx="3" fill="#0c0c0c" stroke="#262626" stroke-width="2"/>
-      <rect x="160" y="316" width="48" height="10" rx="2" fill="#171717"/>
-      <rect x="34" y="312" width="92" height="18" rx="4" fill="#1a1a1a" stroke="#333"/>
-      <circle cx="50" cy="321" r="3" fill="#dc2626" opacity="0.85" filter="url(#clawLedGlow)"/>
-      <circle cx="80" cy="321" r="4" fill="#262626" stroke="#3f3f46"/>
-      <circle cx="322" cy="321" r="4" fill="#262626" stroke="#3f3f46"/>
-      <text x="180" y="336" text-anchor="middle" fill="#52525b" font-size="8" font-family="system-ui,sans-serif" letter-spacing="0.2em">PRIZE OUT</text>
     </svg>`;
 }
 
@@ -694,26 +690,37 @@ function openClawMachine(state, rerender) {
     <div class="modal claw-modal" role="dialog" aria-modal="true" aria-labelledby="claw-heading">
       <div class="modal-inner">
         <h3 id="claw-heading">Prize claw</h3>
-        <p class="claw-sub">${CLAW_UNLIMITED_TEST ? `Test play ${played} · fixed ¾-view cabinet (drawn 3D faces + room depth). No camera tilt — aim footprint, then drop.` : `Play ${played} / ${CLAW_PLAYS_PER_DAY} · ¾-view machine: side + depth to line up with the prize row.`}</p>
+        <p class="claw-sub">${CLAW_UNLIMITED_TEST ? `Test play ${played} · Line up over a prize, then grab. Side and depth stay fixed perspective (no camera swing).` : `Play ${played} / ${CLAW_PLAYS_PER_DAY} · Aim side-to-side and front-to-back on the prize row, then grab.`}</p>
         <div class="claw-stage-wrap claw-stage-3d">
           ${clawSvgMarkup()}
         </div>
-        <div class="claw-controls">
-          <div class="claw-controls-row">
-            <span class="claw-axis-label">Side</span>
-            <button type="button" class="btn-secondary claw-nudge claw-nudge-x" data-x="-1" aria-label="Move claw left">◀</button>
-            <input type="range" class="claw-slider" id="clawSliderX" min="${CLAW_SVG_X_MIN}" max="${CLAW_SVG_X_MAX}" value="${Math.round(clawX)}" step="1" aria-label="Claw left-right"/>
-            <button type="button" class="btn-secondary claw-nudge claw-nudge-x" data-x="1" aria-label="Move claw right">▶</button>
+        <div class="claw-deck">
+          <div class="claw-deck-row">
+            <div class="claw-pad" role="group" aria-label="Move claw">
+              <span class="claw-pad-spacer" aria-hidden="true"></span>
+              <button type="button" class="claw-pad-btn btn-secondary claw-nudge claw-nudge-z" data-z="-1" aria-label="Toward front">▲</button>
+              <span class="claw-pad-spacer" aria-hidden="true"></span>
+              <button type="button" class="claw-pad-btn btn-secondary claw-nudge claw-nudge-x" data-x="-1" aria-label="Move left">◀</button>
+              <span class="claw-pad-center" aria-hidden="true"></span>
+              <button type="button" class="claw-pad-btn btn-secondary claw-nudge claw-nudge-x" data-x="1" aria-label="Move right">▶</button>
+              <span class="claw-pad-spacer" aria-hidden="true"></span>
+              <button type="button" class="claw-pad-btn btn-secondary claw-nudge claw-nudge-z" data-z="1" aria-label="Toward back">▼</button>
+              <span class="claw-pad-spacer" aria-hidden="true"></span>
+            </div>
+            <button type="button" class="btn-primary claw-grab-btn" id="clawDrop">Grab</button>
           </div>
-          <div class="claw-controls-row">
-            <span class="claw-axis-label">Depth</span>
-            <button type="button" class="btn-secondary claw-nudge claw-nudge-z" data-z="-1" aria-label="Toward you (front)">Front</button>
-            <input type="range" class="claw-slider claw-slider-z" id="clawSliderZ" min="0" max="100" value="${Math.round(clawZ * 100)}" step="1" aria-label="Depth toward back"/>
-            <button type="button" class="btn-secondary claw-nudge claw-nudge-z" data-z="1" aria-label="Toward back">Back</button>
+          <div class="claw-deck-fine">
+            <div class="claw-fine-row">
+              <span class="claw-fine-label">Side</span>
+              <input type="range" class="claw-slider" id="clawSliderX" min="${CLAW_SVG_X_MIN}" max="${CLAW_SVG_X_MAX}" value="${Math.round(clawX)}" step="1" aria-label="Fine tune left-right"/>
+            </div>
+            <div class="claw-fine-row">
+              <span class="claw-fine-label">Depth</span>
+              <input type="range" class="claw-slider claw-slider-z" id="clawSliderZ" min="0" max="100" value="${Math.round(clawZ * 100)}" step="1" aria-label="Fine tune depth"/>
+            </div>
           </div>
-          <button type="button" class="btn-primary claw-drop-wide" id="clawDrop">Drop claw</button>
         </div>
-        <p class="claw-hint-keys" style="font-size:0.75rem;color:var(--text-secondary);margin-top:8px">Keys: <kbd>←</kbd><kbd>→</kbd> side · <kbd>↑</kbd><kbd>↓</kbd> depth · <kbd>Space</kbd> drop</p>
+        <p class="claw-hint-keys" style="font-size:0.75rem;color:var(--text-secondary);margin-top:8px">Keys: <kbd>←</kbd><kbd>→</kbd> side · <kbd>↑</kbd><kbd>↓</kbd> depth · <kbd>Space</kbd> or <kbd>Enter</kbd> grab</p>
         <p class="claw-status" style="min-height:1.2em;font-size:0.8125rem;color:var(--text-secondary);margin-top:10px"></p>
         <div class="claw-result">
           <div class="result-title"></div>
