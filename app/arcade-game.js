@@ -378,10 +378,25 @@ function tick(state) {
 }
 
 const CLAW_PIT_COLORS = ['#ec4899', '#f59e0b', '#10b981'];
-const CLAW_TROLLEY_X = [-40, 0, 40];
+/** SVG user coords: horizontal range for gantry (viewBox 0–320). */
+const CLAW_SVG_X_MIN = 82;
+const CLAW_SVG_X_MAX = 238;
+const CLAW_BALL_CX = [95, 160, 225];
 
-function rollClawOutcome() {
-  const prizeIdx = Math.floor(Math.random() * 3);
+function nearestPrizeIndex(clawX) {
+  let best = 0;
+  let bestD = Infinity;
+  CLAW_BALL_CX.forEach((cx, i) => {
+    const d = Math.abs(clawX - cx);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  });
+  return best;
+}
+
+function rollClawReward(prizeIdx) {
   const prizeBall = CLAW_PIT_COLORS[prizeIdx];
   const r = Math.random();
   if (r < 0.28) {
@@ -463,6 +478,62 @@ function rollClawOutcome() {
   };
 }
 
+function clawSvgMarkup() {
+  const [c0, c1, c2] = CLAW_PIT_COLORS;
+  return `
+    <svg class="claw-svg" viewBox="0 0 320 240" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <linearGradient id="clawCabShade" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#18181b"/><stop offset="50%" stop-color="#27272a"/><stop offset="100%" stop-color="#18181b"/>
+        </linearGradient>
+        <linearGradient id="clawRail" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#71717a"/><stop offset="100%" stop-color="#3f3f46"/>
+        </linearGradient>
+        <radialGradient id="clawOrb0" cx="35%" cy="30%" r="65%"><stop offset="0%" stop-color="#f9a8d4"/><stop offset="45%" stop-color="${c0}"/><stop offset="100%" stop-color="#9d174d"/></radialGradient>
+        <radialGradient id="clawOrb1" cx="35%" cy="30%" r="65%"><stop offset="0%" stop-color="#fcd34d"/><stop offset="45%" stop-color="${c1}"/><stop offset="100%" stop-color="#b45309"/></radialGradient>
+        <radialGradient id="clawOrb2" cx="35%" cy="30%" r="65%"><stop offset="0%" stop-color="#6ee7b7"/><stop offset="45%" stop-color="${c2}"/><stop offset="100%" stop-color="#047857"/></radialGradient>
+        <linearGradient id="clawCordGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#57534e"/><stop offset="50%" stop-color="#d6d3d1"/><stop offset="100%" stop-color="#57534e"/>
+        </linearGradient>
+        <filter id="clawSoftShadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="3" stdDeviation="2" flood-opacity="0.45"/>
+        </filter>
+      </defs>
+      <path d="M 28 28 L 292 28 L 304 46 L 304 208 L 16 208 L 16 46 Z" fill="url(#clawCabShade)" stroke="#3f3f46" stroke-width="1.2"/>
+      <path d="M 40 42 L 280 42 L 288 52 L 288 198 L 32 198 Z" fill="#0c0a09" opacity="0.55" stroke="rgba(255,255,255,0.07)"/>
+      <ellipse cx="160" cy="188" rx="122" ry="26" fill="#292524" opacity="0.92"/>
+      <ellipse cx="160" cy="182" rx="108" ry="18" fill="url(#clawCabShade)" opacity="0.4"/>
+      <g class="claw-orbs" filter="url(#clawSoftShadow)">
+        <g transform="translate(95,156)"><ellipse cx="0" cy="10" rx="19" ry="8" fill="#000" opacity="0.35"/><circle r="18" fill="url(#clawOrb0)"/><ellipse cx="-5" cy="-6" rx="7" ry="4" fill="rgba(255,255,255,0.35)"/></g>
+        <g transform="translate(160,156)"><ellipse cx="0" cy="10" rx="19" ry="8" fill="#000" opacity="0.35"/><circle r="18" fill="url(#clawOrb1)"/><ellipse cx="-5" cy="-6" rx="7" ry="4" fill="rgba(255,255,255,0.35)"/></g>
+        <g transform="translate(225,156)"><ellipse cx="0" cy="10" rx="19" ry="8" fill="#000" opacity="0.35"/><circle r="18" fill="url(#clawOrb2)"/><ellipse cx="-5" cy="-6" rx="7" ry="4" fill="rgba(255,255,255,0.35)"/></g>
+      </g>
+      <path d="M 52 36 L 268 36 L 264 50 L 56 50 Z" fill="#52525b" opacity="0.95"/>
+      <rect x="52" y="34" width="216" height="6" rx="2" fill="url(#clawRail)"/>
+      <g id="clawGantry" transform="translate(160, 40)">
+        <rect x="-22" y="-8" width="44" height="16" rx="4" fill="#71717a" stroke="#52525b" stroke-width="0.8"/>
+        <rect x="-8" y="6" width="16" height="5" rx="1" fill="#52525b"/>
+        <g id="clawRig" transform="translate(0, 11)">
+          <g id="clawCordPack" style="transform-origin: 0 0">
+            <line x1="0" y1="0" x2="0" y2="108" stroke="url(#clawCordGrad)" stroke-width="3.5" stroke-linecap="round"/>
+            <g id="clawGrabber" transform="translate(0, 108)">
+              <rect x="-10" y="-4" width="20" height="8" rx="2" fill="#57534e"/>
+              <g id="clawHookL" style="transform-origin: -10px 4px">
+                <path d="M -10 4 L -10 21 Q -10 25 -5 23" fill="none" stroke="#a8a29e" stroke-width="3" stroke-linecap="round"/>
+              </g>
+              <g id="clawHookR" style="transform-origin: 10px 4px">
+                <path d="M 10 4 L 10 21 Q 10 25 5 23" fill="none" stroke="#a8a29e" stroke-width="3" stroke-linecap="round"/>
+              </g>
+              <circle id="clawCaughtOrb" r="0" cx="0" cy="16" opacity="0" fill="url(#clawOrb1)"/>
+            </g>
+          </g>
+        </g>
+      </g>
+      <path d="M 32 48 Q 160 8 288 48 L 288 200 Q 160 230 32 200 Z" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1" pointer-events="none"/>
+      <rect x="14" y="26" width="292" height="186" rx="10" fill="none" stroke="rgba(255,255,255,0.04)" pointer-events="none"/>
+    </svg>`;
+}
+
 function openClawMachine(state, rerender) {
   ensureClawDay(state);
   if (!CLAW_UNLIMITED_TEST && state.claw.plays >= CLAW_PLAYS_PER_DAY) {
@@ -473,42 +544,29 @@ function openClawMachine(state, rerender) {
   saveState(state);
   rerender();
 
-  const outcome = rollClawOutcome();
-  const tx = CLAW_TROLLEY_X[outcome.prizeIdx];
   const played = state.claw.plays;
   const overlay = document.createElement('div');
   overlay.className = 'modal-bg';
   let finished = false;
+  let phase = 'aim';
+  let clawX = (CLAW_SVG_X_MIN + CLAW_SVG_X_MAX) / 2;
 
   overlay.innerHTML = `
     <div class="modal claw-modal" role="dialog" aria-modal="true" aria-labelledby="claw-heading">
       <div class="modal-inner">
         <h3 id="claw-heading">Prize claw</h3>
-        <p class="claw-sub">${CLAW_UNLIMITED_TEST ? `Play ${played} today · unlimited test · outcome is sealed when the grab completes` : `Play ${played} of ${CLAW_PLAYS_PER_DAY} today · Outcome is sealed when the grab completes`}</p>
-        <div class="claw-stage-wrap">
-          <div class="claw-stage">
-            <div class="claw-beam"></div>
-            <div class="claw-trolley">
-              <div class="claw-carriage-top"></div>
-              <div class="claw-cord"></div>
-              <div class="claw-head">
-                <div class="claw-magnet"></div>
-                <div class="claw-hooks">
-                  <div class="claw-hook"></div>
-                  <div class="claw-hook right"></div>
-                </div>
-                <div class="claw-caught"></div>
-              </div>
-            </div>
-            <div class="claw-pit">
-              <div class="pit-prize" style="background:linear-gradient(145deg,${CLAW_PIT_COLORS[0]},#9d174d)"></div>
-              <div class="pit-prize" style="background:linear-gradient(145deg,${CLAW_PIT_COLORS[1]},#b45309)"></div>
-              <div class="pit-prize" style="background:linear-gradient(145deg,${CLAW_PIT_COLORS[2]},#047857)"></div>
-            </div>
-            <div class="claw-glass"></div>
-          </div>
+        <p class="claw-sub">${CLAW_UNLIMITED_TEST ? `Play ${played} today · unlimited test · align over an orb, then drop` : `Play ${played} of ${CLAW_PLAYS_PER_DAY} today · ← → or slider, then drop · reward roll uses the orb you grab`}</p>
+        <div class="claw-stage-wrap claw-stage-3d">
+          ${clawSvgMarkup()}
         </div>
-        <p class="claw-status" style="min-height:1.2em;font-size:0.8125rem;color:var(--text-secondary);margin-top:12px"></p>
+        <div class="claw-controls">
+          <button type="button" class="btn-secondary claw-nudge" data-dir="-1" aria-label="Move claw left">◀</button>
+          <input type="range" class="claw-slider" id="clawSlider" min="${CLAW_SVG_X_MIN}" max="${CLAW_SVG_X_MAX}" value="${Math.round(clawX)}" step="1" aria-valuemin="${CLAW_SVG_X_MIN}" aria-valuemax="${CLAW_SVG_X_MAX}" aria-label="Claw horizontal position"/>
+          <button type="button" class="btn-secondary claw-nudge" data-dir="1" aria-label="Move claw right">▶</button>
+          <button type="button" class="btn-primary" id="clawDrop">Drop claw</button>
+        </div>
+        <p class="claw-hint-keys" style="font-size:0.75rem;color:var(--text-secondary);margin-top:8px">Keys: <kbd>←</kbd> <kbd>→</kbd> move · <kbd>Space</kbd> drop</p>
+        <p class="claw-status" style="min-height:1.2em;font-size:0.8125rem;color:var(--text-secondary);margin-top:10px"></p>
         <div class="claw-result">
           <div class="result-title"></div>
           <div class="result-body"></div>
@@ -521,27 +579,38 @@ function openClawMachine(state, rerender) {
     </div>
   `;
 
-  const trolley = overlay.querySelector('.claw-trolley');
-  const cord = overlay.querySelector('.claw-cord');
-  const caught = overlay.querySelector('.claw-caught');
-  const leftHook = overlay.querySelector('.claw-hook:not(.right)');
-  const rightHook = overlay.querySelector('.claw-hook.right');
+  const gantry = overlay.querySelector('#clawGantry');
+  const cordPack = overlay.querySelector('#clawCordPack');
+  const hookL = overlay.querySelector('#clawHookL');
+  const hookR = overlay.querySelector('#clawHookR');
+  const caughtOrbEl = overlay.querySelector('#clawCaughtOrb');
+  const orbGroups = overlay.querySelectorAll('.claw-orbs > g');
+  const slider = overlay.querySelector('#clawSlider');
+  const dropBtn = overlay.querySelector('#clawDrop');
   const statusEl = overlay.querySelector('.claw-status');
   const resultBox = overlay.querySelector('.claw-result');
   const doneBtn = overlay.querySelector('#clawDone');
-  if (!trolley || !cord || !caught || !leftHook || !rightHook) {
-    outcome.apply(state);
+
+  if (!gantry || !cordPack || !hookL || !hookR || !caughtOrbEl || !slider || !dropBtn) {
+    const fallback = rollClawReward(nearestPrizeIndex(clawX));
+    fallback.apply(state);
     saveState(state);
-    toast(`Prize applied: ${outcome.title}`);
+    toast(`Prize applied: ${fallback.title}`);
     rerender();
     return;
   }
 
-  caught.style.background = `linear-gradient(145deg, ${outcome.prizeBall}, rgba(0,0,0,0.35))`;
-  caught.style.opacity = '0';
-  caught.style.transform = 'scale(0.4)';
+  const CORD_SCALE_RETRACT = 0.26;
+  const CORD_SCALE_FULL = 1;
+  const CORD_SCALE_RAISED = 0.34;
 
-  const pitPrizes = overlay.querySelectorAll('.pit-prize');
+  function setClawX(x) {
+    clawX = Math.max(CLAW_SVG_X_MIN, Math.min(CLAW_SVG_X_MAX, x));
+    gantry.setAttribute('transform', `translate(${clawX}, 40)`);
+    slider.value = String(Math.round(clawX));
+  }
+
+  setClawX(clawX);
 
   function closeModal() {
     if (!finished) return;
@@ -554,73 +623,123 @@ function openClawMachine(state, rerender) {
     if (e.target === overlay && finished) closeModal();
   });
 
+  slider.addEventListener('input', () => setClawX(Number(slider.value)));
+  overlay.querySelectorAll('.claw-nudge').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const d = Number(btn.getAttribute('data-dir'));
+      setClawX(clawX + d * 6);
+    });
+  });
+
+  function onKey(ev) {
+    if (phase !== 'aim') return;
+    if (ev.key === 'ArrowLeft') {
+      ev.preventDefault();
+      setClawX(clawX - 5);
+    } else if (ev.key === 'ArrowRight') {
+      ev.preventDefault();
+      setClawX(clawX + 5);
+    } else if (ev.key === ' ' || ev.key === 'Enter') {
+      ev.preventDefault();
+      dropBtn.click();
+    }
+  }
+  window.addEventListener('keydown', onKey);
+
   document.body.appendChild(overlay);
+  dropBtn.focus();
 
   const easeOut = 'cubic-bezier(0.33, 1, 0.68, 1)';
   const easeInOut = 'cubic-bezier(0.4, 0, 0.2, 1)';
 
-  (async () => {
-    try {
-      statusEl.textContent = 'Aligning gantry…';
-      await trolley.animate(
-        [{ transform: 'translateX(0)' }, { transform: `translateX(${tx}px)` }],
-        { duration: 720, easing: easeInOut },
-      ).finished;
+  cordPack.style.transform = `scaleY(${CORD_SCALE_RETRACT})`;
 
-      statusEl.textContent = 'Lowering claw assembly…';
-      await cord.animate(
-        [{ transform: 'scaleY(0.22)' }, { transform: 'scaleY(1)' }],
-        { duration: 1050, fill: 'forwards', easing: easeOut },
-      ).finished;
+  dropBtn.addEventListener('click', () => {
+    if (phase !== 'aim') return;
+    phase = 'dropping';
+    slider.disabled = true;
+    dropBtn.disabled = true;
+    overlay.querySelectorAll('.claw-nudge').forEach((b) => {
+      b.disabled = true;
+    });
 
-      statusEl.textContent = 'Closing grabber…';
-      await Promise.all([
-        leftHook.animate(
-          [{ transform: 'rotate(12deg)' }, { transform: 'rotate(34deg)' }],
-          { duration: 260, fill: 'forwards' },
-        ).finished,
-        rightHook.animate(
-          [{ transform: 'rotate(-12deg)' }, { transform: 'rotate(-34deg)' }],
-          { duration: 260, fill: 'forwards' },
-        ).finished,
-      ]);
+    const prizeIdx = nearestPrizeIndex(clawX);
+    const outcome = rollClawReward(prizeIdx);
+    const gradId = `clawOrb${prizeIdx}`;
+    caughtOrbEl.setAttribute('fill', `url(#${gradId})`);
 
-      caught.style.opacity = '1';
-      caught.style.transform = 'scale(1)';
-      pitPrizes.forEach((el, i) => {
-        if (i !== outcome.prizeIdx) el.classList.add('dim');
-      });
+    (async () => {
+      try {
+        statusEl.textContent = 'Lowering claw…';
+        await cordPack.animate(
+          [
+            { transform: `scaleY(${CORD_SCALE_RETRACT})` },
+            { transform: `scaleY(${CORD_SCALE_FULL})` },
+          ],
+          { duration: 900, easing: easeOut, fill: 'forwards' },
+        ).finished;
+        cordPack.style.transform = `scaleY(${CORD_SCALE_FULL})`;
 
-      statusEl.textContent = 'Extracting prize…';
-      await cord.animate(
-        [{ transform: 'scaleY(1)' }, { transform: 'scaleY(0.26)' }],
-        { duration: 880, easing: easeInOut },
-      ).finished;
+        statusEl.textContent = 'Closing grabber…';
+        await Promise.all([
+          hookL.animate(
+            [{ transform: 'rotate(0deg)' }, { transform: 'rotate(22deg)' }],
+            { duration: 280, easing: easeInOut, fill: 'forwards' },
+          ).finished,
+          hookR.animate(
+            [{ transform: 'rotate(0deg)' }, { transform: 'rotate(-22deg)' }],
+            { duration: 280, easing: easeInOut, fill: 'forwards' },
+          ).finished,
+        ]);
+        hookL.style.transform = 'rotate(22deg)';
+        hookR.style.transform = 'rotate(-22deg)';
 
-      outcome.apply(state);
-      saveState(state);
+        caughtOrbEl.setAttribute('r', '14');
+        caughtOrbEl.setAttribute('opacity', '1');
 
-      statusEl.textContent = '';
-      resultBox.querySelector('.result-title').textContent = outcome.title;
-      resultBox.querySelector('.result-body').textContent = outcome.detail;
-      resultBox.querySelector('.result-chip').textContent = outcome.chip;
-      resultBox.classList.add('visible');
-      if (doneBtn) doneBtn.disabled = false;
-      finished = true;
-      rerender();
-    } catch (err) {
-      outcome.apply(state);
-      saveState(state);
-      finished = true;
-      if (doneBtn) doneBtn.disabled = false;
-      statusEl.textContent = '';
-      resultBox.querySelector('.result-title').textContent = outcome.title;
-      resultBox.querySelector('.result-body').textContent = outcome.detail;
-      resultBox.querySelector('.result-chip').textContent = outcome.chip;
-      resultBox.classList.add('visible');
-      rerender();
-    }
-  })();
+        orbGroups.forEach((g, i) => {
+          g.style.opacity = i === prizeIdx ? '1' : '0.38';
+        });
+
+        statusEl.textContent = 'Raising prize…';
+        await cordPack.animate(
+          [
+            { transform: `scaleY(${CORD_SCALE_FULL})` },
+            { transform: `scaleY(${CORD_SCALE_RAISED})` },
+          ],
+          { duration: 850, easing: easeInOut, fill: 'forwards' },
+        ).finished;
+        cordPack.style.transform = `scaleY(${CORD_SCALE_RAISED})`;
+
+        outcome.apply(state);
+        saveState(state);
+
+        statusEl.textContent = '';
+        resultBox.querySelector('.result-title').textContent = outcome.title;
+        resultBox.querySelector('.result-body').textContent = outcome.detail;
+        resultBox.querySelector('.result-chip').textContent = outcome.chip;
+        resultBox.classList.add('visible');
+        if (doneBtn) doneBtn.disabled = false;
+        finished = true;
+        phase = 'done';
+        window.removeEventListener('keydown', onKey);
+        rerender();
+      } catch (err) {
+        outcome.apply(state);
+        saveState(state);
+        finished = true;
+        phase = 'done';
+        window.removeEventListener('keydown', onKey);
+        if (doneBtn) doneBtn.disabled = false;
+        statusEl.textContent = '';
+        resultBox.querySelector('.result-title').textContent = outcome.title;
+        resultBox.querySelector('.result-body').textContent = outcome.detail;
+        resultBox.querySelector('.result-chip').textContent = outcome.chip;
+        resultBox.classList.add('visible');
+        rerender();
+      }
+    })();
+  });
 }
 
 function claimBp(state, tier, track) {

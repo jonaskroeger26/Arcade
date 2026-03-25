@@ -552,131 +552,53 @@
             border-radius: 6px;
         }
 
-        /* Claw machine modal */
+        /* Claw machine modal (SVG 3D-style cabinet + controls) */
         .claw-modal { padding: 0; overflow: hidden; border-radius: 16px; }
         .claw-modal .modal-inner { padding: 20px 20px 18px; }
         .claw-modal h3 { font-size: 1.125rem; font-weight: 700; letter-spacing: -0.02em; }
-        .claw-modal .claw-sub { font-size: 0.8125rem; color: var(--text-secondary); margin-top: 4px; }
+        .claw-modal .claw-sub { font-size: 0.8125rem; color: var(--text-secondary); margin-top: 4px; line-height: 1.45; }
         .claw-stage-wrap {
             margin: 16px 0 0;
             border-radius: 12px;
             overflow: hidden;
             border: 1px solid var(--border);
-            background: linear-gradient(180deg, #27272a 0%, #18181b 45%, #0f0f10 100%);
+            background: linear-gradient(180deg, #1c1917 0%, #0c0a09 55%, #090706 100%);
         }
-        .claw-stage {
-            position: relative;
-            height: 240px;
-            overflow: hidden;
+        .claw-stage-3d { line-height: 0; }
+        .claw-svg {
+            width: 100%;
+            height: auto;
+            display: block;
+            max-height: min(52vh, 280px);
         }
-        .claw-glass {
-            position: absolute;
-            inset: 0;
-            border: 2px solid rgba(255,255,255,0.08);
-            border-radius: 0 0 12px 12px;
-            pointer-events: none;
-            box-shadow: inset 0 0 40px rgba(255,255,255,0.03);
-        }
-        .claw-beam {
-            position: absolute;
-            top: 12px;
-            left: 8%;
-            right: 8%;
-            height: 6px;
-            background: linear-gradient(90deg, #3f3f46, #71717a, #3f3f46);
-            border-radius: 3px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-        }
-        .claw-trolley {
-            position: absolute;
-            top: 18px;
-            left: 50%;
-            width: 36px;
-            margin-left: -18px;
+        .claw-controls {
             display: flex;
-            flex-direction: column;
+            flex-wrap: wrap;
             align-items: center;
-            transform: translateX(0);
-            z-index: 3;
-        }
-        .claw-carriage-top {
-            width: 28px;
-            height: 8px;
-            background: #52525b;
-            border-radius: 2px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
-        }
-        .claw-cord {
-            width: 3px;
-            height: 48px;
-            background: linear-gradient(90deg, #52525b, #a1a1aa, #52525b);
-            border-radius: 1px;
-            transform-origin: top center;
-            transform: scaleY(0.22);
-            will-change: transform;
-        }
-        .claw-head {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-top: -2px;
-            transform-origin: top center;
-            will-change: transform;
-        }
-        .claw-hooks {
-            display: flex;
             gap: 10px;
-            align-items: flex-start;
+            margin-top: 14px;
         }
-        .claw-hook {
-            width: 5px;
-            height: 16px;
-            background: linear-gradient(180deg, #71717a, #3f3f46);
-            border-radius: 0 0 3px 3px;
-            transform-origin: top center;
-            transform: rotate(12deg);
-            will-change: transform;
+        .claw-slider {
+            flex: 1 1 140px;
+            min-width: 100px;
+            accent-color: var(--accent);
+            height: 6px;
+            cursor: pointer;
         }
-        .claw-hook.right { transform: rotate(-12deg); }
-        .claw-magnet {
-            width: 14px;
-            height: 8px;
-            background: #52525b;
-            border-radius: 2px;
-            margin-bottom: -2px;
+        .claw-nudge {
+            padding: 8px 14px;
+            min-width: 44px;
+            font-size: 0.875rem;
         }
-        .claw-caught {
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            margin-top: 4px;
-            opacity: 0;
-            transform: scale(0.5);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.35);
-            will-change: transform, opacity;
+        .claw-controls #clawDrop { flex: 1 1 120px; }
+        .claw-hint-keys kbd {
+            font-family: ui-monospace, monospace;
+            font-size: 0.6875rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            background: var(--bg);
         }
-        .claw-pit {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 88px;
-            background: radial-gradient(ellipse 80% 60% at 50% 100%, #27272a, #18181b);
-            display: flex;
-            align-items: flex-end;
-            justify-content: center;
-            gap: 18px;
-            padding-bottom: 14px;
-            z-index: 1;
-        }
-        .pit-prize {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            box-shadow: inset 0 -3px 6px rgba(0,0,0,0.25), 0 2px 6px rgba(0,0,0,0.3);
-            transition: opacity 0.3s, transform 0.3s;
-        }
-        .pit-prize.dim { opacity: 0.35; }
         .claw-result {
             margin: 16px 0 0;
             padding: 14px 16px;
