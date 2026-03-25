@@ -382,18 +382,32 @@ const CLAW_PIT_COLORS = ['#ec4899', '#f59e0b', '#10b981'];
 const CLAW_SVG_X_MIN = 82;
 const CLAW_SVG_X_MAX = 238;
 const CLAW_BALL_CX = [95, 160, 225];
+/** Beyond this (SVG units) from the nearest orb, the claw never grips. */
+const CLAW_GRAB_MAX_DIST = 27;
 
-function nearestPrizeIndex(clawX) {
-  let best = 0;
-  let bestD = Infinity;
+/**
+ * Realistic grab: alignment strongly helps but never guarantees a catch.
+ * @returns {{ caught: boolean, prizeIdx: number, dist: number, kind: 'win' | 'slip' | 'wide' }}
+ */
+function resolveClawCatch(clawX) {
+  let prizeIdx = 0;
+  let dist = Infinity;
   CLAW_BALL_CX.forEach((cx, i) => {
     const d = Math.abs(clawX - cx);
-    if (d < bestD) {
-      bestD = d;
-      best = i;
+    if (d < dist) {
+      dist = d;
+      prizeIdx = i;
     }
   });
-  return best;
+  if (dist > CLAW_GRAB_MAX_DIST) {
+    return { caught: false, prizeIdx, dist, kind: 'wide' };
+  }
+  const align = 1 - dist / CLAW_GRAB_MAX_DIST;
+  const pSuccess = 0.08 + 0.78 * align ** 1.35;
+  if (Math.random() < pSuccess) {
+    return { caught: true, prizeIdx, dist, kind: 'win' };
+  }
+  return { caught: false, prizeIdx, dist, kind: 'slip' };
 }
 
 function rollClawReward(prizeIdx) {
@@ -555,7 +569,7 @@ function openClawMachine(state, rerender) {
     <div class="modal claw-modal" role="dialog" aria-modal="true" aria-labelledby="claw-heading">
       <div class="modal-inner">
         <h3 id="claw-heading">Prize claw</h3>
-        <p class="claw-sub">${CLAW_UNLIMITED_TEST ? `Play ${played} today · unlimited test · align over an orb, then drop` : `Play ${played} of ${CLAW_PLAYS_PER_DAY} today · ← → or slider, then drop · reward roll uses the orb you grab`}</p>
+        <p class="claw-sub">${CLAW_UNLIMITED_TEST ? `Play ${played} today (test) · center the claw over an orb — close misses and loose grip happen often` : `Play ${played} of ${CLAW_PLAYS_PER_DAY} today · align carefully: grabs can miss or slip even when lined up`}</p>
         <div class="claw-stage-wrap claw-stage-3d">
           ${clawSvgMarkup()}
         </div>
@@ -592,10 +606,15 @@ function openClawMachine(state, rerender) {
   const doneBtn = overlay.querySelector('#clawDone');
 
   if (!gantry || !cordPack || !hookL || !hookR || !caughtOrbEl || !slider || !dropBtn) {
-    const fallback = rollClawReward(nearestPrizeIndex(clawX));
-    fallback.apply(state);
-    saveState(state);
-    toast(`Prize applied: ${fallback.title}`);
+    const cr = resolveClawCatch(clawX);
+    if (cr.caught) {
+      const fallback = rollClawReward(cr.prizeIdx);
+      fallback.apply(state);
+      saveState(state);
+      toast(`Prize applied: ${fallback.title}`);
+    } else {
+      toast(cr.kind === 'wide' ? 'Claw missed (no prize).' : 'Prize slipped (no reward).', true);
+    }
     rerender();
     return;
   }
@@ -663,12 +682,24 @@ function openClawMachine(state, rerender) {
       b.disabled = true;
     });
 
-    const prizeIdx = nearestPrizeIndex(clawX);
-    const outcome = rollClawReward(prizeIdx);
-    const gradId = `clawOrb${prizeIdx}`;
-    caughtOrbEl.setAttribute('fill', `url(#${gradId})`);
+    const catchRes = resolveClawCatch(clawX);
+    const prizeIdx = catchRes.prizeIdx;
+    const outcome = catchRes.caught ? rollClawReward(prizeIdx) : null;
 
     (async () => {
+      const showResult = (title, detail, chip) => {
+        statusEl.textContent = '';
+        resultBox.querySelector('.result-title').textContent = title;
+        resultBox.querySelector('.result-body').textContent = detail;
+        resultBox.querySelector('.result-chip').textContent = chip;
+        resultBox.classList.add('visible');
+        if (doneBtn) doneBtn.disabled = false;
+        finished = true;
+        phase = 'done';
+        window.removeEventListener('keydown', onKey);
+        rerender();
+      };
+
       try {
         statusEl.textContent = 'Lowering claw…';
         await cordPack.animate(
@@ -694,6 +725,51 @@ function openClawMachine(state, rerender) {
         hookL.style.transform = 'rotate(22deg)';
         hookR.style.transform = 'rotate(-22deg)';
 
+        if (!catchRes.caught) {
+          statusEl.textContent =
+            catchRes.kind === 'wide'
+              ? 'Nothing solid under the claw…'
+              : 'Almost… slipping…';
+          await new Promise((r) => setTimeout(r, catchRes.kind === 'wide' ? 420 : 520));
+          statusEl.textContent =
+            catchRes.kind === 'wide' ? 'Lifting out empty.' : 'Lost the grip.';
+          await Promise.all([
+            hookL.animate(
+              [{ transform: 'rotate(22deg)' }, { transform: 'rotate(6deg)' }],
+              { duration: 220, easing: easeInOut, fill: 'forwards' },
+            ).finished,
+            hookR.animate(
+              [{ transform: 'rotate(-22deg)' }, { transform: 'rotate(-6deg)' }],
+              { duration: 220, easing: easeInOut, fill: 'forwards' },
+            ).finished,
+          ]);
+          hookL.style.transform = 'rotate(6deg)';
+          hookR.style.transform = 'rotate(-6deg)';
+          caughtOrbEl.setAttribute('r', '0');
+          caughtOrbEl.setAttribute('opacity', '0');
+          orbGroups.forEach((g) => {
+            g.style.opacity = '1';
+          });
+          statusEl.textContent = 'Retracting…';
+          await cordPack.animate(
+            [
+              { transform: `scaleY(${CORD_SCALE_FULL})` },
+              { transform: `scaleY(${CORD_SCALE_RAISED})` },
+            ],
+            { duration: 850, easing: easeInOut, fill: 'forwards' },
+          ).finished;
+          cordPack.style.transform = `scaleY(${CORD_SCALE_RAISED})`;
+          const missTitle = catchRes.kind === 'wide' ? 'Complete miss' : 'Slipped free';
+          const missBody =
+            catchRes.kind === 'wide'
+              ? 'The claw landed between prizes — nothing to hold onto. Try centering over a sphere.'
+              : 'You had contact but the orb rolled out — classic claw behavior. Tighter alignment improves odds but never guarantees a win.';
+          showResult(missTitle, missBody, 'No prize');
+          return;
+        }
+
+        const gradId = `clawOrb${prizeIdx}`;
+        caughtOrbEl.setAttribute('fill', `url(#${gradId})`);
         caughtOrbEl.setAttribute('r', '14');
         caughtOrbEl.setAttribute('opacity', '1');
 
@@ -714,29 +790,20 @@ function openClawMachine(state, rerender) {
         outcome.apply(state);
         saveState(state);
 
-        statusEl.textContent = '';
-        resultBox.querySelector('.result-title').textContent = outcome.title;
-        resultBox.querySelector('.result-body').textContent = outcome.detail;
-        resultBox.querySelector('.result-chip').textContent = outcome.chip;
-        resultBox.classList.add('visible');
-        if (doneBtn) doneBtn.disabled = false;
-        finished = true;
-        phase = 'done';
-        window.removeEventListener('keydown', onKey);
-        rerender();
+        showResult(outcome.title, outcome.detail, outcome.chip);
       } catch (err) {
-        outcome.apply(state);
-        saveState(state);
-        finished = true;
-        phase = 'done';
-        window.removeEventListener('keydown', onKey);
-        if (doneBtn) doneBtn.disabled = false;
-        statusEl.textContent = '';
-        resultBox.querySelector('.result-title').textContent = outcome.title;
-        resultBox.querySelector('.result-body').textContent = outcome.detail;
-        resultBox.querySelector('.result-chip').textContent = outcome.chip;
-        resultBox.classList.add('visible');
-        rerender();
+        if (outcome) {
+          outcome.apply(state);
+          saveState(state);
+          showResult(outcome.title, outcome.detail, outcome.chip);
+        } else {
+          finished = true;
+          phase = 'done';
+          window.removeEventListener('keydown', onKey);
+          if (doneBtn) doneBtn.disabled = false;
+          statusEl.textContent = '';
+          rerender();
+        }
       }
     })();
   });
