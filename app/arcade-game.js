@@ -1,10 +1,8 @@
 /**
- * Arcade Empire — idle tycoon prototype.
- * Sync ARCADE mint with scripts/arcade-token.devnet.json if you remint.
+ * Arcade Empire — tycoon (room, cabinet upgrades, daily claw).
  */
-const SAVE_KEY = 'arcade-empire-v1';
+const SAVE_KEY = 'arcade-empire-v2';
 
-/** @type {{ mint: string, decimals: number, cluster: string }} */
 export const ARCADE_DEVNET = {
   mint: 'G6V72JHHinX2JVRetdGuZzE4kdB7v6andgAZTYSAtH1i',
   decimals: 6,
@@ -79,6 +77,9 @@ const BP_XP_PER_TIER = 400;
 const BP_MAX_TIER = 40;
 const RUSH_DURATION_MS = 45_000;
 const RUSH_COOLDOWN_MS = 120_000;
+const CABINET_MAX_LEVEL = 10;
+const LEVEL_INCOME_PER_LVL = 0.12;
+const CLAW_PLAYS_PER_DAY = 5;
 
 function uid() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
@@ -90,7 +91,16 @@ function todayStr() {
 
 function loadState() {
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
+    let raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) {
+      const legacy = localStorage.getItem('arcade-empire-v1');
+      if (legacy) {
+        raw = legacy;
+        try {
+          localStorage.setItem(SAVE_KEY, legacy);
+        } catch (_) {}
+      }
+    }
     if (!raw) return null;
     return JSON.parse(raw);
   } catch {
@@ -115,6 +125,7 @@ function defaultState() {
     lastTick: Date.now(),
     rushEnd: 0,
     rushCooldownUntil: 0,
+    claw: { day: todayStr(), plays: 0 },
     bp: {
       xp: 0,
       tier: 0,
@@ -132,7 +143,7 @@ function mergeState(raw) {
   const d = defaultState();
   if (!raw || typeof raw !== 'object') return d;
   const bpIn = raw.bp || {};
-  return {
+  const merged = {
     ...d,
     ...raw,
     bp: {
@@ -143,10 +154,39 @@ function mergeState(raw) {
     },
     machines: Array.isArray(raw.machines) ? raw.machines : [],
   };
+  if (!merged.claw || typeof merged.claw !== 'object')
+    merged.claw = { day: todayStr(), plays: 0 };
+  if (typeof merged.claw.plays !== 'number')
+    merged.claw.plays = merged.claw.uses ?? 0;
+  for (const m of merged.machines) {
+    if (m.level == null || m.level < 1) m.level = 1;
+    if (m.level > CABINET_MAX_LEVEL) m.level = CABINET_MAX_LEVEL;
+  }
+  return merged;
+}
+
+function ensureClawDay(state) {
+  const d = todayStr();
+  if (!state.claw) state.claw = { day: d, plays: 0 };
+  if (state.claw.day !== d) {
+    state.claw.day = d;
+    state.claw.plays = 0;
+  }
 }
 
 function typeById(id) {
   return MACHINE_TYPES.find((t) => t.id === id);
+}
+
+function levelMultiplier(level) {
+  const lv = Math.max(1, Math.min(CABINET_MAX_LEVEL, level || 1));
+  return 1 + (lv - 1) * LEVEL_INCOME_PER_LVL;
+}
+
+function machineBaseIncome(m) {
+  const t = typeById(m.typeId);
+  if (!t) return 0;
+  return t.income * levelMultiplier(m.level);
 }
 
 function setMultiplier(machines) {
@@ -168,15 +208,22 @@ function repairCost(typeId) {
   return t ? Math.max(8, Math.floor(t.cost * 0.14)) : 10;
 }
 
+function upgradeCost(m) {
+  const t = typeById(m.typeId);
+  if (!t) return 999999;
+  const lv = Math.min(CABINET_MAX_LEVEL, m.level || 1);
+  if (lv >= CABINET_MAX_LEVEL) return 999999;
+  return Math.floor(t.cost * (0.32 + lv * 0.14));
+}
+
 function toast(msg, err) {
   const el = document.createElement('div');
   el.className = err ? 'toast err' : 'toast';
   el.textContent = msg;
   document.body.appendChild(el);
-  setTimeout(() => el.remove(), 2600);
+  setTimeout(() => el.remove(), 2800);
 }
 
-/** @type {import('@solana/web3.js').Connection | null} */
 let devnetConnection = null;
 
 function getSolana() {
@@ -226,6 +273,7 @@ async function refreshWalletArcade(state) {
 }
 
 function tick(state) {
+  ensureClawDay(state);
   const now = Date.now();
   let dt = (now - state.lastTick) / 1000;
   if (dt > 120) dt = 120;
@@ -246,10 +294,12 @@ function tick(state) {
     if (m.broken) continue;
     const t = typeById(m.typeId);
     if (!t) continue;
-    income += t.income * hypeMult * rushMult * setMult;
-    if (Math.random() < t.breakdown * comfortFactor * dt) {
+    const lvMult = levelMultiplier(m.level);
+    income += t.income * lvMult * hypeMult * rushMult * setMult;
+    const br = t.breakdown / Math.max(0.85, Math.sqrt(lvMult));
+    if (Math.random() < br * comfortFactor * dt) {
       m.broken = true;
-      toast(`${t.name} jammed — repair it!`, true);
+      toast(`${t.name} needs service`, true);
     }
   }
 
@@ -263,14 +313,52 @@ function tick(state) {
     toast(`Battle pass tier ${state.bp.tier}!`);
   }
 
-  if (Math.random() < 0.015 * dt && !rush) {
+  if (Math.random() < 0.012 * dt && !rush) {
     state.tickets += 1;
-    toast('Bonus ticket dropped!');
+    toast('Bonus ticket!');
   }
 
   state.hype = Math.max(20, Math.min(100, state.hype + (rush ? 0.04 : -0.02) * dt));
-  state.comfort = Math.max(35, Math.min(100, state.comfort - 0.015 * dt * state.machines.filter((m) => !m.broken).length));
+  state.comfort = Math.max(35, Math.min(100, state.comfort - 0.014 * dt * state.machines.filter((m) => !m.broken).length));
   saveState(state);
+}
+
+function playClaw(state, rerender) {
+  ensureClawDay(state);
+  if (state.claw.plays >= CLAW_PLAYS_PER_DAY) {
+    toast('No claw plays left today. Come back tomorrow!', true);
+    return;
+  }
+  state.claw.plays += 1;
+  const r = Math.random();
+  let msg = '';
+  if (r < 0.28) {
+    const c = 55 + Math.floor(Math.random() * 280);
+    state.coins += c;
+    msg = `Grabbed ${c} credits!`;
+  } else if (r < 0.52) {
+    const n = 1 + Math.floor(Math.random() * 3);
+    state.tickets += n;
+    msg = `Won ${n} ticket${n > 1 ? 's' : ''}!`;
+  } else if (r < 0.68) {
+    state.hype = Math.min(100, state.hype + 6 + Math.floor(Math.random() * 8));
+    msg = 'Crowd loved it — hype up!';
+  } else if (r < 0.84) {
+    state.comfort = Math.min(100, state.comfort + 5 + Math.floor(Math.random() * 8));
+    msg = 'Prize kit — room feels nicer!';
+  } else if (r < 0.94) {
+    const c = 120 + Math.floor(Math.random() * 200);
+    state.coins += c;
+    state.tickets += 1;
+    msg = `Jackpot pull! ${c} credits + a ticket`;
+  } else {
+    state.tickets += 4;
+    state.bp.xp += 120;
+    msg = 'Rare plush — 4 tickets + pass XP!';
+  }
+  toast(msg);
+  saveState(state);
+  rerender();
 }
 
 function claimBp(state, tier, track) {
@@ -350,13 +438,12 @@ function openBattlePassModal(state, rerender) {
   bg.innerHTML = `
     <div class="modal">
       <button class="close" type="button">Close</button>
-      <h3>Season 1 — Neon Pass</h3>
-      <p style="font-size:0.7rem;color:var(--muted);line-height:1.5;">
-        Earn pass XP from arcade income. Claim rewards when you reach each tier.
-        Premium track is a UI placeholder until you hook payments or NFT gate.
+      <h3>Season pass</h3>
+      <p style="font-size:0.8125rem;color:var(--muted);line-height:1.5;">
+        Earn XP from arcade income. Claim milestones when you unlock each tier.
       </p>
       <div class="progress"><i style="width:${Math.min(100, (state.bp.tier / BP_MAX_TIER) * 100)}%"></i></div>
-      <p style="font-size:0.65rem;color:var(--muted);">Tier ${state.bp.tier} / ${BP_MAX_TIER} · XP ${Math.floor(state.bp.xp)}</p>
+      <p style="font-size:0.75rem;color:var(--muted);">Tier ${state.bp.tier} / ${BP_MAX_TIER} · XP ${Math.floor(state.bp.xp)}</p>
       <div class="bp-track" id="bpTrack"></div>
     </div>
   `;
@@ -368,7 +455,7 @@ function openBattlePassModal(state, rerender) {
       'bp-tier' + (state.bp.tier >= t ? ' active' : '') + (freeClaimed ? ' claimed' : '');
     row.innerHTML = `
       <span>T${t}</span>
-      <span style="flex:1;color:var(--muted)">Rewards scale with your empire</span>
+      <span style="flex:1;color:var(--muted)">Credits, tickets & room buffs</span>
       <button type="button" data-free="${t}">Free</button>
       <button type="button" data-prem="${t}" ${state.bp.premium ? '' : 'disabled'}>Premium</button>
     `;
@@ -376,9 +463,9 @@ function openBattlePassModal(state, rerender) {
   }
   if (!state.bp.premium) {
     const hint = document.createElement('p');
-    hint.style.cssText = 'margin-top:12px;font-size:0.65rem;color:var(--muted)';
+    hint.style.cssText = 'margin-top:12px;font-size:0.75rem;color:var(--muted)';
     hint.textContent =
-      'Premium track unlocks later (payment / NFT). Test locally: localStorage key arcade-empire-v1 → bp.premium = true.';
+      'Premium: hook up later. Dev: set bp.premium true in localStorage save.';
     bg.querySelector('.modal').appendChild(hint);
   }
   bg.querySelector('.close').onclick = () => bg.remove();
@@ -399,27 +486,41 @@ function openBattlePassModal(state, rerender) {
 }
 
 function render(state, root) {
+  ensureClawDay(state);
   const rush = Date.now() < state.rushEnd;
   const rushCd = Date.now() < state.rushCooldownUntil;
   const setMult = setMultiplier(state.machines);
-  const occupied = new Set(state.machines.map((m) => m.slot));
+
+  const clawLeft = Math.max(0, CLAW_PLAYS_PER_DAY - state.claw.plays);
+  const clawLabel =
+    clawLeft === 0
+      ? 'Claw — back tomorrow'
+      : `Claw drop — ${clawLeft} play${clawLeft === 1 ? '' : 's'} left today`;
 
   const floorSlots = [];
   for (let i = 0; i < state.slotCount; i++) {
     const m = state.machines.find((x) => x.slot === i);
     if (!m) {
-      floorSlots.push(`<div class="slot" data-slot="${i}">Empty booth<br><span style="font-size:0.6rem">Buy below</span></div>`);
+      floorSlots.push(
+        `<div class="slot" data-slot="${i}">Open space<br><span style="font-size:0.6875rem;font-weight:500;opacity:0.85">Add a cabinet below</span></div>`,
+      );
       continue;
     }
     const t = typeById(m.typeId);
     const rc = repairCost(m.typeId);
+    const lv = m.level || 1;
+    const inc = machineBaseIncome(m);
+    const uc = upgradeCost(m);
+    const maxed = lv >= CABINET_MAX_LEVEL;
     floorSlots.push(`
-      <div class="machine ${m.broken ? 'broken' : ''} ${rush ? 'rush' : ''}" data-mid="${m.id}">
+      <div class="cabinet ${m.broken ? 'broken' : ''} ${rush ? 'rush' : ''}" data-mid="${m.id}">
         <div class="emoji">${t?.emoji || '❔'}</div>
         <div class="name">${t?.name || 'Unknown'}</div>
-        <div class="meta">${m.broken ? 'OUT OF ORDER' : `${t?.income.toFixed(1)} ¢/s`}${setMult > 1 ? ` · ×${setMult.toFixed(2)} set` : ''}</div>
+        <div class="meta">${m.broken ? '<span style="color:#fecaca;font-weight:600">Out of order</span>' : `<strong>Lv ${lv}</strong> · ${inc.toFixed(1)} ¢/s`}${setMult > 1 ? `<br>Set ×${setMult.toFixed(2)}` : ''}</div>
         <div class="actions">
-          ${m.broken ? `<button type="button" class="btn-repair" data-repair="${m.id}">Fix ${rc}¢</button>` : `<span style="font-size:0.6rem;color:var(--muted);text-align:center;width:100%;align-self:center;">Running</span>`}
+          ${!m.broken && !maxed ? `<button type="button" class="btn-upgrade" data-upgrade="${m.id}">Upgrade (${uc}¢)</button>` : ''}
+          ${!m.broken && maxed ? `<span style="font-size:0.6875rem;color:var(--muted);text-align:center">Max level</span>` : ''}
+          ${m.broken ? `<button type="button" class="btn-repair" data-repair="${m.id}">Repair ${rc}¢</button>` : ''}
         </div>
       </div>
     `);
@@ -433,7 +534,7 @@ function render(state, root) {
         <div class="ico">${t.emoji}</div>
         <div class="info">
           <div class="n">${t.name}</div>
-          <div class="d">${t.income.toFixed(1)}¢/s · ${t.tag} tag · jam risk ${(t.breakdown * 1000).toFixed(2)}</div>
+          <div class="d">${t.income.toFixed(1)}¢/s base · ${t.tag} · place in your room</div>
         </div>
         <button type="button" data-buy="${t.id}" ${can ? '' : 'disabled'}>${t.cost}¢</button>
       </div>
@@ -445,7 +546,7 @@ function render(state, root) {
 
   root.innerHTML = `
     <div class="top">
-      <h1>ARCADE EMPIRE</h1>
+      <h1>Arcade Empire</h1>
       <a href="https://github.com/jonaskroeger26/Arcade" target="_blank" rel="noopener noreferrer">GitHub</a>
     </div>
     <div class="hud">
@@ -454,37 +555,51 @@ function render(state, root) {
       <div class="stat hype"><div class="lbl">Hype</div><div class="val" id="hypeDisp">${Math.round(state.hype)}%</div></div>
       <div class="stat"><div class="lbl">Comfort</div><div class="val" id="comfortDisp">${Math.round(state.comfort)}%</div></div>
       <div class="stat token" style="grid-column:1/-1;">
-        <div class="lbl">ARCADE token (devnet wallet)</div>
+        <div class="lbl">ARCADE token (devnet)</div>
         <div class="val" id="walletArcadeBal">—</div>
       </div>
     </div>
     <div class="row-btns">
       <button type="button" class="btn-wallet" id="btnWallet">${getSolana()?.publicKey ? 'Refresh wallet' : 'Connect wallet'}</button>
       <button type="button" class="btn-rush" id="btnRush" ${rush || rushCd || state.tickets < 1 ? 'disabled' : ''}>
-        ${rush ? 'RUSH LIVE' : rushCd ? 'Rush cooling…' : 'Rush hour (1 ticket)'}
+        ${rush ? 'Rush live' : rushCd ? 'Rush cooling…' : 'Rush hour (1 ticket)'}
       </button>
       <button type="button" class="btn-bp" id="btnBp">Battle pass</button>
       <button type="button" class="btn-neon" id="btnExpand" ${canExpand ? '' : 'disabled'}>
-        Expand floor (${expandCost}¢) ${state.slotCount}/${SLOT_MAX}
+        Bigger room (${expandCost}¢) · ${state.slotCount}/${SLOT_MAX} spots
       </button>
+      <button type="button" class="btn-claw" id="btnClaw" ${clawLeft === 0 ? 'disabled' : ''}>${clawLabel}</button>
     </div>
     <section>
-      <h2>Your floor · Set bonus ×${setMult.toFixed(2)}</h2>
-      <div class="floor">${floorSlots.join('')}</div>
+      <h2>Your room</h2>
+      <div class="arcade-room">
+        <div class="room-wall">
+          <div class="strip">· Neon row · Prize corner · Your floor ·</div>
+        </div>
+        <div class="room-floor">
+          <div class="claw-booth">
+            <div class="claw-label">Lobby claw · ${CLAW_PLAYS_PER_DAY} free tries / day</div>
+            <div class="claw-visual" aria-hidden="true">🎟️</div>
+          </div>
+          <div class="floor-grid">${floorSlots.join('')}</div>
+        </div>
+      </div>
     </section>
     <section>
-      <h2>Shop — place into next free booth</h2>
+      <h2>New cabinets</h2>
       <div class="shop">${shop}</div>
     </section>
-    <p style="font-size:0.65rem;color:var(--muted);text-align:center;line-height:1.5;margin-top:8px;">
-      Prototype: progress saves locally. ARCADE mint: <span style="color:var(--cyan)">${ARCADE_DEVNET.mint.slice(0, 6)}…</span> (Solscan devnet)
+    <p style="font-size:0.75rem;color:var(--muted);text-align:center;line-height:1.5;margin-top:8px;">
+      Saves in browser. Mint <span style="color:#5eead4">${ARCADE_DEVNET.mint.slice(0, 6)}…</span>
     </p>
   `;
+
+  root.querySelector('#btnClaw').onclick = () => playClaw(state, () => render(state, root));
 
   root.querySelector('#btnWallet').onclick = async () => {
     const s = getSolana();
     if (!s) {
-      toast('No wallet (open in Phantom / Seeker browser)', true);
+      toast('No wallet (open in Phantom / Seeker)', true);
       return;
     }
     if (!s.publicKey) {
@@ -496,7 +611,7 @@ function render(state, root) {
       }
     }
     await refreshWalletArcade(state);
-    toast('Wallet balance refreshed');
+    toast('Wallet refreshed');
   };
 
   root.querySelector('#btnRush').onclick = () => {
@@ -510,7 +625,7 @@ function render(state, root) {
     state.rushEnd = now + RUSH_DURATION_MS;
     state.rushCooldownUntil = now + RUSH_DURATION_MS + RUSH_COOLDOWN_MS;
     state.hype = Math.min(100, state.hype + 12);
-    toast('RUSH HOUR — double credits!');
+    toast('Rush hour — double credits!');
     saveState(state);
     render(state, root);
   };
@@ -523,7 +638,7 @@ function render(state, root) {
     if (state.coins < cost) return;
     state.coins -= cost;
     state.slotCount += 1;
-    toast(`Floor expanded — ${state.slotCount} booths`);
+    toast(`Room expanded — ${state.slotCount} spots`);
     saveState(state);
     render(state, root);
   };
@@ -534,11 +649,11 @@ function render(state, root) {
       const t = typeById(id);
       if (!t || state.coins < t.cost) return;
       if (state.machines.length >= state.slotCount) {
-        toast('Floor full — expand first', true);
+        toast('Room full — expand first', true);
         return;
       }
-      let slot = -1;
       const occ = new Set(state.machines.map((m) => m.slot));
+      let slot = -1;
       for (let i = 0; i < state.slotCount; i++) {
         if (!occ.has(i)) {
           slot = i;
@@ -552,8 +667,28 @@ function render(state, root) {
         typeId: id,
         slot,
         broken: false,
+        level: 1,
       });
-      toast(`${t.name} installed`);
+      toast(`${t.name} placed in your room`);
+      saveState(state);
+      render(state, root);
+    });
+  });
+
+  root.querySelectorAll('[data-upgrade]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-upgrade');
+      const m = state.machines.find((x) => x.id === id);
+      if (!m || m.broken) return;
+      const c = upgradeCost(m);
+      if ((m.level || 1) >= CABINET_MAX_LEVEL) return;
+      if (state.coins < c) {
+        toast(`Need ${c}¢ to upgrade`, true);
+        return;
+      }
+      state.coins -= c;
+      m.level = (m.level || 1) + 1;
+      toast(`Upgraded to Lv ${m.level}`);
       saveState(state);
       render(state, root);
     });
@@ -572,7 +707,7 @@ function render(state, root) {
       state.coins -= c;
       m.broken = false;
       state.comfort = Math.min(100, state.comfort + 3);
-      toast('Back online');
+      toast('Cabinet fixed');
       saveState(state);
       render(state, root);
     });
@@ -582,6 +717,7 @@ function render(state, root) {
 }
 
 function initDaily(state) {
+  ensureClawDay(state);
   const d = todayStr();
   if (state.bp.lastLoginDay !== d) {
     const yest = new Date();
@@ -592,7 +728,7 @@ function initDaily(state) {
     state.bp.lastLoginDay = d;
     state.tickets += 1 + Math.min(3, Math.floor((state.bp.streak || 1) / 3));
     state.bp.xp += 50;
-    toast(`Day ${state.bp.streak} streak — bonus ticket`);
+    toast(`Day ${state.bp.streak} — login bonus`);
     saveState(state);
   }
 }
@@ -616,7 +752,7 @@ function boot() {
       if (comfortEl) comfortEl.textContent = `${Math.round(state.comfort)}%`;
       if (tickEl) tickEl.textContent = String(state.tickets);
       const rush = Date.now() < state.rushEnd;
-      document.querySelectorAll('.machine').forEach((el) => {
+      document.querySelectorAll('.cabinet').forEach((el) => {
         if (rush) el.classList.add('rush');
         else el.classList.remove('rush');
       });
@@ -625,7 +761,17 @@ function boot() {
         const cd = Date.now() < state.rushCooldownUntil;
         const need = state.tickets < 1;
         rushBtn.disabled = rush || cd || need;
-        rushBtn.textContent = rush ? 'RUSH LIVE' : cd ? 'Rush cooling…' : 'Rush hour (1 ticket)';
+        rushBtn.textContent = rush ? 'Rush live' : cd ? 'Rush cooling…' : 'Rush hour (1 ticket)';
+      }
+      ensureClawDay(state);
+      const left = Math.max(0, CLAW_PLAYS_PER_DAY - state.claw.plays);
+      const clawBtn = document.getElementById('btnClaw');
+      if (clawBtn) {
+        clawBtn.disabled = left === 0;
+        clawBtn.textContent =
+          left === 0
+            ? 'Claw — back tomorrow'
+            : `Claw drop — ${left} play${left === 1 ? '' : 's'} left today`;
       }
     }
     requestAnimationFrame(loop);
