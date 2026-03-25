@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+    <meta name="theme-color" content="#0a0a12">
+    <title>Arcade Empire — Tycoon</title>
+    <script src="https://unpkg.com/@solana/web3.js@1.87.6/lib/index.iife.min.js"></script>
+    <script src="mwa-bundle.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a12;
+            --bg2: #12121c;
+            --panel: #16162a;
+            --border: #2d2d48;
+            --cyan: #00f5ff;
+            --pink: #ff2d6a;
+            --gold: #ffd23f;
+            --green: #39ff14;
+            --text: #e8e8f0;
+            --muted: #8888a8;
+            --danger: #ff4466;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
+        body {
+            font-family: 'Share Tech Mono', ui-monospace, monospace;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100%;
+            background-image:
+                radial-gradient(ellipse 100% 80% at 50% -40%, rgba(0, 245, 255, 0.12), transparent),
+                radial-gradient(ellipse 80% 60% at 100% 100%, rgba(255, 45, 106, 0.08), transparent);
+        }
+        .layout {
+            max-width: 480px;
+            margin: 0 auto;
+            min-height: 100vh;
+            padding: 16px 16px 100px;
+        }
+        .top {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .top h1 {
+            font-family: Orbitron, sans-serif;
+            font-weight: 800;
+            font-size: 1.15rem;
+            letter-spacing: 0.06em;
+            text-shadow: 0 0 20px rgba(0, 245, 255, 0.4);
+            flex: 1 1 auto;
+        }
+        .top a {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 0.75rem;
+            border: 1px solid var(--border);
+            padding: 8px 12px;
+            border-radius: 8px;
+        }
+        .top a:hover { color: var(--cyan); border-color: var(--cyan); }
+        .hud {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .stat {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 14px;
+        }
+        .stat .lbl { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; }
+        .stat .val {
+            font-family: Orbitron, sans-serif;
+            font-size: 1.1rem;
+            margin-top: 4px;
+            color: var(--gold);
+        }
+        .stat.tickets .val { color: var(--pink); }
+        .stat.hype .val { color: var(--cyan); }
+        .stat.token .val { font-size: 0.85rem; word-break: break-all; color: var(--green); }
+        .row-btns {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        button {
+            font-family: inherit;
+            cursor: pointer;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 10px 14px;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        button:active { transform: scale(0.97); }
+        .btn-neon {
+            background: linear-gradient(135deg, #1a1a2e, #252540);
+            color: var(--cyan);
+            border: 1px solid rgba(0, 245, 255, 0.35);
+            box-shadow: 0 0 16px rgba(0, 245, 255, 0.15);
+        }
+        .btn-neon:hover { box-shadow: 0 0 24px rgba(0, 245, 255, 0.28); }
+        .btn-rush {
+            background: linear-gradient(135deg, #2a1020, #401028);
+            color: var(--pink);
+            border: 1px solid rgba(255, 45, 106, 0.4);
+        }
+        .btn-rush:disabled { opacity: 0.45; cursor: not-allowed; }
+        .btn-bp {
+            background: linear-gradient(135deg, #2a2610, #403a18);
+            color: var(--gold);
+            border: 1px solid rgba(255, 210, 63, 0.35);
+        }
+        .btn-wallet {
+            background: var(--bg2);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        section {
+            margin-bottom: 18px;
+        }
+        section h2 {
+            font-family: Orbitron, sans-serif;
+            font-size: 0.7rem;
+            letter-spacing: 0.15em;
+            color: var(--muted);
+            margin-bottom: 10px;
+        }
+        .floor {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        .slot {
+            min-height: 120px;
+            background: var(--bg2);
+            border: 1px dashed var(--border);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            font-size: 0.7rem;
+            text-align: center;
+            padding: 8px;
+        }
+        .machine {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px;
+            width: 100%;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .machine.rush { box-shadow: 0 0 20px rgba(255, 45, 106, 0.25); border-color: rgba(255, 45, 106, 0.45); }
+        .machine.broken {
+            border-color: var(--danger);
+            opacity: 0.92;
+        }
+        .machine .emoji { font-size: 1.6rem; text-align: center; margin-bottom: 4px; }
+        .machine .name { font-family: Orbitron, sans-serif; font-size: 0.65rem; text-align: center; color: var(--cyan); }
+        .machine .meta { font-size: 0.6rem; color: var(--muted); text-align: center; margin-top: 6px; }
+        .machine .actions { margin-top: auto; display: flex; gap: 6px; }
+        .machine .actions button {
+            flex: 1;
+            padding: 8px;
+            font-size: 0.65rem;
+        }
+        .btn-repair {
+            background: #2a1818;
+            color: var(--danger);
+            border: 1px solid rgba(255, 68, 102, 0.4);
+        }
+        .shop {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .shop-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+        }
+        .shop-item .ico { font-size: 1.8rem; }
+        .shop-item .info { flex: 1; }
+        .shop-item .info .n { font-family: Orbitron, sans-serif; font-size: 0.75rem; color: var(--gold); }
+        .shop-item .info .d { font-size: 0.65rem; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+        .shop-item button {
+            background: linear-gradient(180deg, #1e3a2f, #153528);
+            color: var(--green);
+            border: 1px solid rgba(57, 255, 20, 0.35);
+            white-space: nowrap;
+        }
+        .shop-item button:disabled {
+            opacity: 0.38;
+            cursor: not-allowed;
+        }
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 20px;
+            background: var(--panel);
+            border: 1px solid var(--cyan);
+            border-radius: 10px;
+            font-size: 0.75rem;
+            z-index: 50;
+            animation: pop 0.3s ease;
+        }
+        .toast.err { border-color: var(--danger); color: var(--danger); }
+        @keyframes pop {
+            from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        .modal-bg {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.72);
+            z-index: 100;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 16px;
+        }
+        .modal {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px 16px 0 0;
+            max-width: 480px;
+            width: 100%;
+            max-height: 85vh;
+            overflow: auto;
+            padding: 20px;
+        }
+        .modal h3 {
+            font-family: Orbitron, sans-serif;
+            font-size: 0.9rem;
+            color: var(--gold);
+            margin-bottom: 8px;
+        }
+        .modal .close {
+            float: right;
+            background: transparent;
+            color: var(--muted);
+            border: 1px solid var(--border);
+            padding: 6px 12px;
+        }
+        .bp-track {
+            margin-top: 16px;
+        }
+        .bp-tier {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            border-radius: 10px;
+            background: var(--bg2);
+            margin-bottom: 8px;
+            font-size: 0.7rem;
+        }
+        .bp-tier.claimed { opacity: 0.45; }
+        .bp-tier.active { border: 1px solid var(--gold); }
+        .bp-tier button {
+            margin-left: auto;
+            padding: 6px 10px;
+            font-size: 0.65rem;
+        }
+        .progress {
+            height: 6px;
+            background: var(--bg2);
+            border-radius: 4px;
+            margin: 12px 0;
+            overflow: hidden;
+        }
+        .progress > i {
+            display: block;
+            height: 100%;
+            background: linear-gradient(90deg, var(--pink), var(--cyan));
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="layout" id="app"></div>
+    <script type="module" src="./arcade-game.js"></script>
+</body>
+</html>
