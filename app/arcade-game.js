@@ -507,76 +507,131 @@ function rollClawReward(prizeIdx) {
 function clawSvgMarkup() {
   const [c0, c1, c2] = CLAW_PIT_COLORS;
   return `
-    <svg class="claw-svg" viewBox="0 0 360 320" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <svg class="claw-svg" viewBox="0 0 360 336" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs>
-        <linearGradient id="clawCabFace" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="#3f3f46"/><stop offset="100%" stop-color="#1c1917"/>
+        <linearGradient id="clawCabBody" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#7f1d1d"/><stop offset="22%" stop-color="#b91c1c"/><stop offset="50%" stop-color="#991b1b"/><stop offset="78%" stop-color="#7f1d1d"/><stop offset="100%" stop-color="#450a0a"/>
         </linearGradient>
-        <linearGradient id="clawVoid" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="#18181b"/><stop offset="100%" stop-color="#0c0a09"/>
+        <linearGradient id="clawCabSide" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#3f0f0f"/><stop offset="50%" stop-color="#7f1d1d"/><stop offset="100%" stop-color="#2a0a0a"/>
+        </linearGradient>
+        <linearGradient id="clawHeaderChrome" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#fafafa"/><stop offset="35%" stop-color="#a1a1aa"/><stop offset="70%" stop-color="#71717a"/><stop offset="100%" stop-color="#3f3f46"/>
+        </linearGradient>
+        <linearGradient id="clawVoid" x1="50%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%" stop-color="#1c1917"/><stop offset="55%" stop-color="#0f0e0d"/><stop offset="100%" stop-color="#050403"/>
+        </linearGradient>
+        <radialGradient id="clawInteriorVignette" cx="50%" cy="42%" r="65%">
+          <stop offset="0%" stop-color="rgba(40,35,32,0.45)"/><stop offset="70%" stop-color="rgba(10,8,8,0.2)"/><stop offset="100%" stop-color="rgba(0,0,0,0.55)"/>
+        </radialGradient>
+        <linearGradient id="clawDeckPlastic" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#262626"/><stop offset="100%" stop-color="#0a0a0a"/>
         </linearGradient>
         <linearGradient id="clawRailMetal" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="#d4d4d8"/><stop offset="100%" stop-color="#52525b"/>
+          <stop offset="0%" stop-color="#f4f4f5"/><stop offset="45%" stop-color="#a1a1aa"/><stop offset="100%" stop-color="#52525b"/>
         </linearGradient>
-        <radialGradient id="clawOrb0" cx="32%" cy="28%" r="68%"><stop offset="0%" stop-color="#fce7f3"/><stop offset="40%" stop-color="${c0}"/><stop offset="100%" stop-color="#831843"/></radialGradient>
-        <radialGradient id="clawOrb1" cx="32%" cy="28%" r="68%"><stop offset="0%" stop-color="#fef3c7"/><stop offset="40%" stop-color="${c1}"/><stop offset="100%" stop-color="#92400e"/></radialGradient>
-        <radialGradient id="clawOrb2" cx="32%" cy="28%" r="68%"><stop offset="0%" stop-color="#d1fae5"/><stop offset="40%" stop-color="${c2}"/><stop offset="100%" stop-color="#065f46"/></radialGradient>
+        <linearGradient id="clawChromeClaw" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#f4f4f5"/><stop offset="50%" stop-color="#94a3b8"/><stop offset="100%" stop-color="#475569"/>
+        </linearGradient>
         <linearGradient id="clawCordGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stop-color="#78716c"/><stop offset="50%" stop-color="#fafaf9"/><stop offset="100%" stop-color="#78716c"/>
+          <stop offset="0%" stop-color="#57534e"/><stop offset="35%" stop-color="#e7e5e4"/><stop offset="50%" stop-color="#fafaf9"/><stop offset="65%" stop-color="#e7e5e4"/><stop offset="100%" stop-color="#57534e"/>
         </linearGradient>
-        <filter id="clawDropShadow" x="-40%" y="-40%" width="180%" height="180%">
-          <feDropShadow dx="0" dy="4" stdDeviation="2.5" flood-opacity="0.55"/>
+        <linearGradient id="clawAcrylicSheen" x1="15%" y1="0%" x2="85%" y2="100%">
+          <stop offset="0%" stop-color="rgba(255,255,255,0.14)"/><stop offset="25%" stop-color="rgba(255,255,255,0.02)"/><stop offset="55%" stop-color="rgba(255,255,255,0)"/><stop offset="85%" stop-color="rgba(180,200,230,0.06)"/><stop offset="100%" stop-color="rgba(255,255,255,0.05)"/>
+        </linearGradient>
+        <radialGradient id="clawOrb0" cx="30%" cy="26%" r="72%"><stop offset="0%" stop-color="#fff1f2"/><stop offset="35%" stop-color="${c0}"/><stop offset="85%" stop-color="#881337"/><stop offset="100%" stop-color="#4c0519"/></radialGradient>
+        <radialGradient id="clawOrb1" cx="30%" cy="26%" r="72%"><stop offset="0%" stop-color="#fffbeb"/><stop offset="35%" stop-color="${c1}"/><stop offset="85%" stop-color="#b45309"/><stop offset="100%" stop-color="#78350f"/></radialGradient>
+        <radialGradient id="clawOrb2" cx="30%" cy="26%" r="72%"><stop offset="0%" stop-color="#ecfdf5"/><stop offset="35%" stop-color="${c2}"/><stop offset="85%" stop-color="#047857"/><stop offset="100%" stop-color="#022c22"/></radialGradient>
+        <filter id="clawOrbShadow" x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="0" dy="5" stdDeviation="3" flood-opacity="0.55"/>
+        </filter>
+        <filter id="clawCabShadow" x="-15%" y="-15%" width="130%" height="130%">
+          <feDropShadow dx="0" dy="10" stdDeviation="8" flood-opacity="0.5"/>
+        </filter>
+        <filter id="clawLedGlow" x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
         </filter>
       </defs>
-      <!-- Cabinet -->
-      <rect x="14" y="16" width="332" height="288" rx="16" fill="url(#clawCabFace)" stroke="#52525b" stroke-width="1.25"/>
-      <rect x="36" y="38" width="288" height="36" rx="8" fill="#0a0a0a" stroke="#3f3f46" stroke-width="0.75"/>
-      <rect x="48" y="48" width="264" height="14" rx="4" fill="#171717"/>
-      <!-- Playfield -->
-      <rect x="28" y="78" width="304" height="206" rx="10" fill="url(#clawVoid)" stroke="#27272a" stroke-width="1"/>
-      <!-- Back wall hint -->
-      <rect x="44" y="92" width="272" height="72" rx="4" fill="#0f0f10" opacity="0.85"/>
-      <!-- Deck / pit -->
-      <ellipse cx="180" cy="234" rx="132" ry="26" fill="#141414"/>
-      <ellipse cx="180" cy="228" rx="118" ry="17" fill="#1f1f22"/>
-      <ellipse cx="180" cy="218" rx="96" ry="9" fill="rgba(56,189,248,0.06)"/>
-      <!-- Prizes (drawn under claw; high-saturation read) -->
-      <g class="claw-orbs" filter="url(#clawDropShadow)">
-        <g transform="translate(108,192)"><ellipse cx="0" cy="13" rx="21" ry="9" fill="#000" opacity="0.45"/><circle r="20" fill="url(#clawOrb0)"/><ellipse cx="-7" cy="-8" rx="8" ry="5" fill="rgba(255,255,255,0.45)"/></g>
-        <g transform="translate(180,192)"><ellipse cx="0" cy="13" rx="21" ry="9" fill="#000" opacity="0.45"/><circle r="20" fill="url(#clawOrb1)"/><ellipse cx="-7" cy="-8" rx="8" ry="5" fill="rgba(255,255,255,0.45)"/></g>
-        <g transform="translate(252,192)"><ellipse cx="0" cy="13" rx="21" ry="9" fill="#000" opacity="0.45"/><circle r="20" fill="url(#clawOrb2)"/><ellipse cx="-7" cy="-8" rx="8" ry="5" fill="rgba(255,255,255,0.45)"/></g>
+      <!-- Cabinet shell (classic red arcade plastic) -->
+      <g filter="url(#clawCabShadow)">
+        <rect x="12" y="12" width="336" height="286" rx="18" fill="url(#clawCabSide)" opacity="0.95"/>
+        <rect x="16" y="14" width="328" height="278" rx="16" fill="url(#clawCabBody)" stroke="#271212" stroke-width="1.5"/>
+        <path d="M 16 38 Q 180 28 344 38" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.2"/>
+        <path d="M 24 268 Q 180 278 336 268" fill="none" stroke="rgba(0,0,0,0.35)" stroke-width="2"/>
       </g>
-      <!-- Overhead beam -->
-      <rect x="64" y="74" width="232" height="10" rx="3" fill="#3f3f46" stroke="#52525b" stroke-width="0.5"/>
-      <rect x="68" y="76" width="224" height="4" rx="1" fill="url(#clawRailMetal)" opacity="0.95"/>
-      <!-- Claw: on top of prizes so it never disappears under “glass” -->
+      <!-- Chrome header / marquee shelf -->
+      <rect x="26" y="24" width="308" height="42" rx="8" fill="url(#clawHeaderChrome)" stroke="#3f3f46" stroke-width="1"/>
+      <rect x="40" y="32" width="280" height="16" rx="4" fill="#18181b" stroke="#27272a"/>
+      <rect x="48" y="36" width="264" height="6" rx="2" fill="#fbbf24" opacity="0.35"/>
+      <rect x="52" y="52" width="256" height="8" rx="2" fill="rgba(0,0,0,0.35)"/>
+      <!-- Window gasket (rubber) -->
+      <rect x="22" y="74" width="316" height="218" rx="12" fill="#171717"/>
+      <rect x="26" y="78" width="308" height="210" rx="10" fill="#0a0a0a" stroke="#27272a" stroke-width="1"/>
+      <!-- Playfield interior -->
+      <rect x="30" y="82" width="300" height="202" rx="9" fill="url(#clawVoid)"/>
+      <rect x="30" y="82" width="300" height="202" rx="9" fill="url(#clawInteriorVignette)" pointer-events="none"/>
+      <rect x="42" y="94" width="276" height="68" rx="5" fill="rgba(255,200,160,0.04)" stroke="none"/>
+      <!-- Carpet pile -->
+      <ellipse cx="180" cy="236" rx="130" ry="26" fill="#2d241c"/>
+      <ellipse cx="180" cy="230" rx="120" ry="19" fill="#3d3228"/>
+      <ellipse cx="180" cy="224" rx="104" ry="12" fill="#4a3f35" opacity="0.7"/>
+      <ellipse cx="180" cy="220" rx="90" ry="8" fill="rgba(251,191,36,0.07)"/>
+      <!-- Prizes -->
+      <g class="claw-orbs" filter="url(#clawOrbShadow)">
+        <g transform="translate(108,192)"><ellipse cx="0" cy="14" rx="22" ry="10" fill="#1a1008" opacity="0.65"/><circle r="20" fill="url(#clawOrb0)"/><ellipse cx="-7" cy="-8" rx="9" ry="5" fill="rgba(255,255,255,0.5)"/></g>
+        <g transform="translate(180,192)"><ellipse cx="0" cy="14" rx="22" ry="10" fill="#1a1008" opacity="0.65"/><circle r="20" fill="url(#clawOrb1)"/><ellipse cx="-7" cy="-8" rx="9" ry="5" fill="rgba(255,255,255,0.5)"/></g>
+        <g transform="translate(252,192)"><ellipse cx="0" cy="14" rx="22" ry="10" fill="#1a1008" opacity="0.65"/><circle r="20" fill="url(#clawOrb2)"/><ellipse cx="-7" cy="-8" rx="9" ry="5" fill="rgba(255,255,255,0.5)"/></g>
+      </g>
+      <!-- Overhead I-beam rail -->
+      <rect x="58" y="76" width="244" height="12" rx="3" fill="#1c1917" stroke="#44403c" stroke-width="0.75"/>
+      <rect x="62" y="78.5" width="236" height="5" rx="1.5" fill="url(#clawRailMetal)"/>
+      <line x1="62" y1="80.5" x2="298" y2="80.5" stroke="rgba(255,255,255,0.45)" stroke-width="0.75" opacity="0.8"/>
+      <!-- Claw (chrome, lit — draw above prizes) -->
       <g id="clawGantry" transform="translate(180, 56)">
         <g id="clawGantryScale">
-          <ellipse cx="0" cy="138" rx="18" ry="5" fill="rgba(56,189,248,0.08)" stroke="rgba(56,189,248,0.45)" stroke-width="0.9"/>
-          <rect x="-26" y="-11" width="52" height="18" rx="5" fill="url(#clawRailMetal)" stroke="#3f3f46" stroke-width="1"/>
-          <rect x="-12" y="7" width="24" height="6" rx="2" fill="#27272a"/>
-          <circle cx="10" cy="-2" r="2.5" fill="#22d3ee" opacity="0.9"/>
-          <g id="clawRig" transform="translate(0, 13)">
+          <ellipse cx="0" cy="140" rx="20" ry="6" fill="rgba(251,191,36,0.12)" stroke="rgba(251,191,36,0.55)" stroke-width="1"/>
+          <rect x="-28" y="-12" width="56" height="20" rx="6" fill="url(#clawRailMetal)" stroke="#3f3f46" stroke-width="1"/>
+          <circle cx="-16" cy="-4" r="2" fill="#27272a" stroke="#52525b" stroke-width="0.5"/>
+          <circle cx="16" cy="-4" r="2" fill="#27272a" stroke="#52525b" stroke-width="0.5"/>
+          <rect x="-14" y="8" width="28" height="7" rx="2" fill="#262626" stroke="#18181b" stroke-width="0.75"/>
+          <circle cx="12" cy="-4" r="2.5" fill="#22d3ee" filter="url(#clawLedGlow)" opacity="0.95"/>
+          <g id="clawRig" transform="translate(0, 14)">
             <g id="clawCordPack" style="transform-origin: 0 0">
-              <line x1="0" y1="0" x2="0" y2="104" stroke="url(#clawCordGrad)" stroke-width="5" stroke-linecap="round"/>
+              <line x1="-1.5" y1="0" x2="-1.5" y2="104" stroke="#44403c" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+              <line x1="1.5" y1="0" x2="1.5" y2="104" stroke="#44403c" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+              <line x1="0" y1="0" x2="0" y2="104" stroke="url(#clawCordGrad)" stroke-width="4.5" stroke-linecap="round"/>
               <g id="clawGrabber" transform="translate(0, 104)">
-                <rect x="-12" y="-5" width="24" height="10" rx="3" fill="#71717a" stroke="#a1a1aa" stroke-width="0.75"/>
-                <g id="clawHookL" style="transform-origin: -12px 5px">
-                  <path d="M -12 5 L -12 22 Q -12 27 -5 25" fill="none" stroke="#e4e4e7" stroke-width="3.5" stroke-linecap="round"/>
+                <circle cx="0" cy="2" r="9" fill="url(#clawChromeClaw)" stroke="#64748b" stroke-width="0.75"/>
+                <ellipse cx="-3" cy="-1" rx="3" ry="2" fill="rgba(255,255,255,0.35)"/>
+                <rect x="-13" y="-2" width="26" height="11" rx="3" fill="#64748b" stroke="url(#clawChromeClaw)" stroke-width="0.85"/>
+                <g id="clawHookL" style="transform-origin: -13px 6px">
+                  <path d="M -13 6 L -14 24 Q -14 29 -6 27 L -3 22" fill="none" stroke="url(#clawChromeClaw)" stroke-width="3.8" stroke-linecap="round"/>
+                  <path d="M -13 6 L -14 24 Q -14 29 -6 27" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="1.2" stroke-linecap="round"/>
                 </g>
-                <g id="clawHookR" style="transform-origin: 12px 5px">
-                  <path d="M 12 5 L 12 22 Q 12 27 5 25" fill="none" stroke="#e4e4e7" stroke-width="3.5" stroke-linecap="round"/>
+                <g id="clawHookR" style="transform-origin: 13px 6px">
+                  <path d="M 13 6 L 14 24 Q 14 29 6 27 L 3 22" fill="none" stroke="url(#clawChromeClaw)" stroke-width="3.8" stroke-linecap="round"/>
+                  <path d="M 13 6 L 14 24 Q 14 29 6 27" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="1.2" stroke-linecap="round"/>
                 </g>
-                <circle id="clawCaughtOrb" r="0" cx="0" cy="18" opacity="0" fill="url(#clawOrb1)"/>
+                <circle id="clawCaughtOrb" r="0" cx="0" cy="19" opacity="0" fill="url(#clawOrb1)"/>
               </g>
             </g>
           </g>
         </g>
       </g>
-      <!-- Edge-only glass: thin bezel + soft top sheen (does not cover the claw) -->
-      <rect x="28" y="78" width="304" height="206" rx="10" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="2" pointer-events="none"/>
-      <path d="M 36 86 L 324 86 L 308 120 L 52 120 Z" fill="rgba(255,255,255,0.03)" pointer-events="none"/>
-      <line x1="42" y1="98" x2="318" y2="210" stroke="rgba(255,255,255,0.06)" stroke-width="1.2" pointer-events="none"/>
+      <!-- Acrylic: sheen only (transparent center — claw stays crisp) -->
+      <rect x="30" y="82" width="300" height="202" rx="9" fill="url(#clawAcrylicSheen)" pointer-events="none"/>
+      <rect x="30" y="82" width="300" height="202" rx="9" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1.5" pointer-events="none"/>
+      <path d="M 38 88 L 118 88 L 108 118 L 38 118 Z" fill="rgba(255,255,255,0.06)" pointer-events="none"/>
+      <line x1="44" y1="92" x2="300" y2="198" stroke="rgba(255,255,255,0.07)" stroke-width="1.5" pointer-events="none"/>
+      <!-- Control deck -->
+      <rect x="24" y="288" width="312" height="40" rx="8" fill="url(#clawDeckPlastic)" stroke="#27272a" stroke-width="1"/>
+      <rect x="148" y="298" width="64" height="22" rx="3" fill="#0c0c0c" stroke="#262626" stroke-width="2"/>
+      <rect x="156" y="304" width="48" height="10" rx="2" fill="#171717"/>
+      <rect x="38" y="302" width="88" height="18" rx="4" fill="#1a1a1a" stroke="#333"/>
+      <circle cx="54" cy="311" r="3" fill="#dc2626" opacity="0.85" filter="url(#clawLedGlow)"/>
+      <circle cx="82" cy="311" r="4" fill="#262626" stroke="#3f3f46"/>
+      <circle cx="314" cy="311" r="4" fill="#262626" stroke="#3f3f46"/>
+      <text x="182" y="328" text-anchor="middle" fill="#52525b" font-size="8" font-family="system-ui,sans-serif" letter-spacing="0.2em">PRIZE OUT</text>
     </svg>`;
 }
 
