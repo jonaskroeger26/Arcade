@@ -508,13 +508,19 @@ function rollClawReward(prizeIdx) {
 function clawSvgMarkup() {
   const [c0, c1, c2] = CLAW_PIT_COLORS;
   return `
-    <svg class="claw-svg" viewBox="0 0 360 336" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <svg class="claw-svg" viewBox="0 0 412 346" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs>
         <linearGradient id="clawCabBody" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stop-color="#7f1d1d"/><stop offset="22%" stop-color="#b91c1c"/><stop offset="50%" stop-color="#991b1b"/><stop offset="78%" stop-color="#7f1d1d"/><stop offset="100%" stop-color="#450a0a"/>
         </linearGradient>
         <linearGradient id="clawCabSide" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stop-color="#3f0f0f"/><stop offset="50%" stop-color="#7f1d1d"/><stop offset="100%" stop-color="#2a0a0a"/>
+        </linearGradient>
+        <linearGradient id="clawCabRightFace" x1="0%" y1="30%" x2="100%" y2="70%">
+          <stop offset="0%" stop-color="#450a0a"/><stop offset="50%" stop-color="#5c0c0c"/><stop offset="100%" stop-color="#2a0606"/>
+        </linearGradient>
+        <linearGradient id="clawCabTopFace" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#9f1239"/><stop offset="100%" stop-color="#6b1010"/>
         </linearGradient>
         <linearGradient id="clawHeaderChrome" x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stop-color="#fafafa"/><stop offset="35%" stop-color="#a1a1aa"/><stop offset="70%" stop-color="#71717a"/><stop offset="100%" stop-color="#3f3f46"/>
@@ -568,22 +574,23 @@ function clawSvgMarkup() {
           <feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
         </filter>
       </defs>
-      <!-- Cabinet shell (classic red arcade plastic) -->
+      <!-- Fixed-view 3D cabinet (no CSS camera): front + top + right faces -->
       <g filter="url(#clawCabShadow)">
-        <rect x="12" y="12" width="336" height="286" rx="18" fill="url(#clawCabSide)" opacity="0.95"/>
-        <rect x="16" y="14" width="328" height="278" rx="16" fill="url(#clawCabBody)" stroke="#271212" stroke-width="1.5"/>
-        <path d="M 16 38 Q 180 28 344 38" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.2"/>
-        <path d="M 24 268 Q 180 278 336 268" fill="none" stroke="rgba(0,0,0,0.35)" stroke-width="2"/>
+        <path d="M 338 52 L 402 34 L 402 286 L 338 304 Z" fill="url(#clawCabRightFace)" stroke="#2a0606" stroke-width="0.75"/>
+        <path d="M 16 34 L 338 52 L 402 34 L 86 32 Z" fill="url(#clawCabTopFace)" stroke="#3f0f0f" stroke-width="0.6"/>
+        <rect x="16" y="34" width="322" height="270" rx="17" fill="url(#clawCabBody)" stroke="#271212" stroke-width="1.5"/>
+        <path d="M 22 48 Q 180 42 336 48" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="1"/>
+        <path d="M 26 292 Q 180 300 328 292" fill="none" stroke="rgba(0,0,0,0.4)" stroke-width="1.5"/>
       </g>
-      <!-- Chrome header / marquee shelf -->
-      <rect x="26" y="24" width="308" height="42" rx="8" fill="url(#clawHeaderChrome)" stroke="#3f3f46" stroke-width="1"/>
-      <rect x="40" y="32" width="280" height="16" rx="4" fill="#18181b" stroke="#27272a"/>
-      <rect x="48" y="36" width="264" height="6" rx="2" fill="#fbbf24" opacity="0.35"/>
-      <rect x="52" y="52" width="256" height="8" rx="2" fill="rgba(0,0,0,0.35)"/>
-      <!-- Window gasket (rubber) -->
-      <rect x="22" y="74" width="316" height="218" rx="12" fill="#171717"/>
-      <rect x="26" y="78" width="308" height="210" rx="10" fill="#0a0a0a" stroke="#27272a" stroke-width="1"/>
-      <!-- One-point perspective chamber (clipped) — CSS 3D tilt on wrapper completes the volume -->
+      <!-- Chrome header / marquee (on front plane only) -->
+      <rect x="28" y="42" width="300" height="40" rx="8" fill="url(#clawHeaderChrome)" stroke="#3f3f46" stroke-width="1"/>
+      <rect x="42" y="50" width="272" height="16" rx="4" fill="#18181b" stroke="#27272a"/>
+      <rect x="50" y="54" width="256" height="6" rx="2" fill="#fbbf24" opacity="0.35"/>
+      <rect x="54" y="70" width="248" height="8" rx="2" fill="rgba(0,0,0,0.35)"/>
+      <!-- Window gasket (rubber surround) -->
+      <rect x="18" y="78" width="318" height="218" rx="12" fill="#171717"/>
+      <rect x="22" y="82" width="310" height="210" rx="10" fill="#0a0a0a" stroke="#27272a" stroke-width="1"/>
+      <!-- Perspective chamber inside glass (fixed eye point — not a tilted texture) -->
       <g clip-path="url(#clawChamberClip)">
         <rect x="30" y="82" width="300" height="202" fill="url(#clawVoid)"/>
         <!-- Ceiling plane (recedes toward back) -->
@@ -653,15 +660,15 @@ function clawSvgMarkup() {
       <rect x="30" y="82" width="300" height="202" rx="9" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1.5" pointer-events="none"/>
       <path d="M 38 88 L 118 88 L 108 118 L 38 118 Z" fill="rgba(255,255,255,0.06)" pointer-events="none"/>
       <line x1="44" y1="92" x2="300" y2="198" stroke="rgba(255,255,255,0.07)" stroke-width="1.5" pointer-events="none"/>
-      <!-- Control deck -->
-      <rect x="24" y="288" width="312" height="40" rx="8" fill="url(#clawDeckPlastic)" stroke="#27272a" stroke-width="1"/>
-      <rect x="148" y="298" width="64" height="22" rx="3" fill="#0c0c0c" stroke="#262626" stroke-width="2"/>
-      <rect x="156" y="304" width="48" height="10" rx="2" fill="#171717"/>
-      <rect x="38" y="302" width="88" height="18" rx="4" fill="#1a1a1a" stroke="#333"/>
-      <circle cx="54" cy="311" r="3" fill="#dc2626" opacity="0.85" filter="url(#clawLedGlow)"/>
-      <circle cx="82" cy="311" r="4" fill="#262626" stroke="#3f3f46"/>
-      <circle cx="314" cy="311" r="4" fill="#262626" stroke="#3f3f46"/>
-      <text x="182" y="328" text-anchor="middle" fill="#52525b" font-size="8" font-family="system-ui,sans-serif" letter-spacing="0.2em">PRIZE OUT</text>
+      <!-- Control deck (front panel) -->
+      <rect x="20" y="302" width="316" height="40" rx="8" fill="url(#clawDeckPlastic)" stroke="#27272a" stroke-width="1"/>
+      <rect x="152" y="310" width="64" height="22" rx="3" fill="#0c0c0c" stroke="#262626" stroke-width="2"/>
+      <rect x="160" y="316" width="48" height="10" rx="2" fill="#171717"/>
+      <rect x="34" y="312" width="92" height="18" rx="4" fill="#1a1a1a" stroke="#333"/>
+      <circle cx="50" cy="321" r="3" fill="#dc2626" opacity="0.85" filter="url(#clawLedGlow)"/>
+      <circle cx="80" cy="321" r="4" fill="#262626" stroke="#3f3f46"/>
+      <circle cx="322" cy="321" r="4" fill="#262626" stroke="#3f3f46"/>
+      <text x="180" y="336" text-anchor="middle" fill="#52525b" font-size="8" font-family="system-ui,sans-serif" letter-spacing="0.2em">PRIZE OUT</text>
     </svg>`;
 }
 
@@ -687,9 +694,9 @@ function openClawMachine(state, rerender) {
     <div class="modal claw-modal" role="dialog" aria-modal="true" aria-labelledby="claw-heading">
       <div class="modal-inner">
         <h3 id="claw-heading">Prize claw</h3>
-        <p class="claw-sub">${CLAW_UNLIMITED_TEST ? `Test play ${played} · real CSS 3D tilt + perspective room inside the glass. Aim the footprint (side + depth), then drop.` : `Play ${played} / ${CLAW_PLAYS_PER_DAY} · perspective cabinet: use side + depth so the claw lines up with the prize row.`}</p>
+        <p class="claw-sub">${CLAW_UNLIMITED_TEST ? `Test play ${played} · fixed ¾-view cabinet (drawn 3D faces + room depth). No camera tilt — aim footprint, then drop.` : `Play ${played} / ${CLAW_PLAYS_PER_DAY} · ¾-view machine: side + depth to line up with the prize row.`}</p>
         <div class="claw-stage-wrap claw-stage-3d">
-          <div class="claw-perspective-tilt">${clawSvgMarkup()}</div>
+          ${clawSvgMarkup()}
         </div>
         <div class="claw-controls">
           <div class="claw-controls-row">
