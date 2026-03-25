@@ -68,14 +68,43 @@ export function createClawScene3D(host, opts) {
   scene.background = new THREE.Color(0x07040a);
   scene.fog = new THREE.Fog(0x120818, 2.2, 5.8);
 
-  const camera = new THREE.PerspectiveCamera(40, cssW / cssH, 0.05, 50);
-  camera.position.set(-0.02, 0.95, 2.18);
-  camera.lookAt(0, 0.2, -0.12);
+  const cameraMain = new THREE.PerspectiveCamera(40, cssW / cssH, 0.05, 50);
+  cameraMain.position.set(-0.02, 0.95, 2.18);
+  cameraMain.lookAt(0, 0.2, -0.12);
+
+  const pitLook = new THREE.Vector3(0, 0.16, -0.08);
+  const cameraLeft = new THREE.PerspectiveCamera(34, 1, 0.05, 50);
+  cameraLeft.position.set(-2.42, 0.46, -0.04);
+  cameraLeft.lookAt(pitLook);
+
+  const cameraRight = new THREE.PerspectiveCamera(34, 1, 0.05, 50);
+  cameraRight.position.set(2.42, 0.46, -0.04);
+  cameraRight.lookAt(pitLook);
+
+  function layoutSizes() {
+    const w = Math.max(320, host.clientWidth || cssW);
+    const h = Math.max(260, Math.round(w * 0.72));
+    const sideW = Math.max(56, Math.floor(w * 0.14));
+    const mainW = Math.max(180, w - 2 * sideW);
+    return { w, h, sideW, mainW };
+  }
+
+  function updateCameraAspects() {
+    const { h, sideW, mainW } = layoutSizes();
+    cameraMain.aspect = mainW / h;
+    cameraMain.updateProjectionMatrix();
+    cameraLeft.aspect = sideW / h;
+    cameraLeft.updateProjectionMatrix();
+    cameraRight.aspect = sideW / h;
+    cameraRight.updateProjectionMatrix();
+  }
 
   let renderer;
   try {
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
-    renderer.setSize(cssW, cssH, false);
+    updateCameraAspects();
+    const { w, h } = layoutSizes();
+    renderer.setSize(w, h, false);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -370,16 +399,32 @@ export function createClawScene3D(host, opts) {
 
   let raf = 0;
   function tick() {
-    renderer.render(scene, camera);
+    const { w, h, sideW, mainW } = layoutSizes();
+    const prevAuto = renderer.autoClear;
+    renderer.autoClear = false;
+    renderer.setScissorTest(true);
+    renderer.setClearColor(0x07040a, 1);
+
+    const drawView = (x, vw, cam) => {
+      renderer.setViewport(x, 0, vw, h);
+      renderer.setScissor(x, 0, vw, h);
+      renderer.clear(true, true, true);
+      renderer.render(scene, cam);
+    };
+
+    drawView(0, sideW, cameraLeft);
+    drawView(sideW, mainW, cameraMain);
+    drawView(sideW + mainW, sideW, cameraRight);
+
+    renderer.setScissorTest(false);
+    renderer.autoClear = prevAuto;
     raf = requestAnimationFrame(tick);
   }
   tick();
 
   const ro = new ResizeObserver(() => {
-    const w = host.clientWidth || cssW;
-    const h = Math.max(260, Math.round(w * 0.72));
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
+    const { w, h } = layoutSizes();
+    updateCameraAspects();
     renderer.setSize(w, h, false);
   });
   ro.observe(host);

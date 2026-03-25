@@ -764,11 +764,14 @@ async function openClawMachine(state, rerender) {
     <div class="modal claw-modal" role="dialog" aria-modal="true" aria-labelledby="claw-heading">
       <div class="modal-inner">
         <h3 id="claw-heading">Prize claw</h3>
-        <p class="claw-sub">${CLAW_UNLIMITED_TEST ? `Test play ${played} · 3D claw booth (WebGL). Line up over a prize sphere, then grab.` : `Play ${played} / ${CLAW_PLAYS_PER_DAY} · Line up on the prize row (side + depth), then grab.`}</p>
+        <p class="claw-sub">${CLAW_UNLIMITED_TEST ? `Test play ${played} · Front view plus left/right side panels for depth. Line up a sphere, then GRAB.` : `Play ${played} / ${CLAW_PLAYS_PER_DAY} · Use side panels to judge depth, then GRAB.`}</p>
         <div class="claw-cabinet">
           <div class="claw-cabinet-bezel">
             <div class="claw-stage-wrap claw-stage-3d">
-              <div class="claw-three-host" role="img" aria-label="3D claw machine view"></div>
+              <div class="claw-three-host" role="img" aria-label="3D claw machine: front view with side depth panels">
+                <span class="claw-three-lbl claw-three-lbl-l" aria-hidden="true">Left side</span>
+                <span class="claw-three-lbl claw-three-lbl-r" aria-hidden="true">Right side</span>
+              </div>
             </div>
           </div>
           <div class="claw-cabinet-plate">
@@ -778,8 +781,10 @@ async function openClawMachine(state, rerender) {
               <div class="claw-joystick-rim" aria-hidden="true"></div>
               <div class="claw-joystick-base" aria-hidden="true"></div>
               <div class="claw-joystick-movable">
-                <div class="claw-joystick-stick" aria-hidden="true"></div>
-                <div class="claw-joystick-knob" aria-hidden="true"></div>
+                <div class="claw-joystick-arm">
+                  <div class="claw-joystick-stick" aria-hidden="true"></div>
+                  <div class="claw-joystick-knob" aria-hidden="true"></div>
+                </div>
               </div>
               <div class="claw-joystick-hit" aria-hidden="true"></div>
             </div>
@@ -831,7 +836,7 @@ async function openClawMachine(state, rerender) {
   const dropBtn = overlay.querySelector('#clawDrop');
   const joyBase = overlay.querySelector('#clawJoystick');
   const joyHit = overlay.querySelector('.claw-joystick-hit');
-  const joyMovable = overlay.querySelector('.claw-joystick-movable');
+  const joyArm = overlay.querySelector('.claw-joystick-arm');
   const statusEl = overlay.querySelector('.claw-status');
   const resultBox = overlay.querySelector('.claw-result');
   const doneBtn = overlay.querySelector('#clawDone');
@@ -938,17 +943,18 @@ async function openClawMachine(state, rerender) {
     clawX = joyMiddleX + nx * joyHalfRangeX * 0.94;
     clawZ = CLAW_Z_ORB_PLANE - ny * 0.44;
     applyClawPose();
-    if (joyMovable) {
-      joyMovable.style.transition = 'none';
-      joyMovable.style.transform = `translate(${dx}px, ${dy}px)`;
+    if (joyArm) {
+      const angle = Math.atan2(dx, -dy);
+      joyArm.style.transition = 'none';
+      joyArm.style.transform = `rotate(${angle}rad)`;
     }
   }
 
   function joySnapCenter() {
-    if (joyMovable) {
-      joyMovable.style.transition =
+    if (joyArm) {
+      joyArm.style.transition =
         'transform 0.28s cubic-bezier(0.34, 1.45, 0.64, 1)';
-      joyMovable.style.transform = 'translate(0px, 0px)';
+      joyArm.style.transform = 'rotate(0rad)';
     }
   }
 
@@ -965,7 +971,7 @@ async function openClawMachine(state, rerender) {
   }
 
   const joySurface = joyHit || joyBase;
-  if (joySurface && joyMovable) {
+  if (joySurface && joyArm) {
     joySurface.addEventListener('pointerdown', (ev) => {
       if (phase !== 'aim' || finished) return;
       ev.preventDefault();
