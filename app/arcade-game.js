@@ -25,7 +25,7 @@ function machineImageHtml(t, context) {
   if (context === 'shop') {
     return `<img class="machine-thumb" src="${src}" alt="${escapeHtml(t.name)}" width="56" height="70" loading="lazy" decoding="async" />`;
   }
-  return `<img class="machine-img" src="${src}" alt="${escapeHtml(t.name)}" width="72" height="88" loading="lazy" decoding="async" />`;
+  return `<img class="machine-img" src="${src}" alt="${escapeHtml(t.name)}" width="76" height="92" loading="lazy" decoding="async" />`;
 }
 
 function escapeHtml(s) {
