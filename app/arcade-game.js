@@ -742,7 +742,7 @@ function clawSvgMarkup() {
     </svg>`;
 }
 
-function openClawMachine(state, rerender) {
+async function openClawMachine(state, rerender) {
   ensureClawDay(state);
   if (!CLAW_UNLIMITED_TEST && state.claw.plays >= CLAW_PLAYS_PER_DAY) {
     toast('Daily claw plays are exhausted. Resets at midnight UTC.', true);
@@ -764,11 +764,11 @@ function openClawMachine(state, rerender) {
     <div class="modal claw-modal" role="dialog" aria-modal="true" aria-labelledby="claw-heading">
       <div class="modal-inner">
         <h3 id="claw-heading">Prize claw</h3>
-        <p class="claw-sub">${CLAW_UNLIMITED_TEST ? `Test play ${played} · Arcade-style booth: red pillars, marquee bulbs, plush pile on blue balls — line up and grab.` : `Play ${played} / ${CLAW_PLAYS_PER_DAY} · Line up on the prize row (side + depth), then grab.`}</p>
+        <p class="claw-sub">${CLAW_UNLIMITED_TEST ? `Test play ${played} · 3D claw booth (WebGL). Line up over a prize sphere, then grab.` : `Play ${played} / ${CLAW_PLAYS_PER_DAY} · Line up on the prize row (side + depth), then grab.`}</p>
         <div class="claw-cabinet">
           <div class="claw-cabinet-bezel">
             <div class="claw-stage-wrap claw-stage-3d">
-              ${clawSvgMarkup()}
+              <div class="claw-three-host" role="img" aria-label="3D claw machine view"></div>
             </div>
           </div>
           <div class="claw-cabinet-plate">
@@ -814,6 +814,25 @@ function openClawMachine(state, rerender) {
     </div>
   `;
 
+  const threeHost = overlay.querySelector('.claw-three-host');
+  let sceneApi = null;
+  if (threeHost) {
+    try {
+      const { createClawScene3D } = await import('./claw-scene-3d.js');
+      sceneApi = createClawScene3D(threeHost, {
+        colors: CLAW_PIT_COLORS,
+        ballCx: CLAW_BALL_CX,
+        svgMin: CLAW_SVG_X_MIN,
+        svgMax: CLAW_SVG_X_MAX,
+      });
+    } catch (_) {
+      sceneApi = null;
+    }
+    if (!sceneApi) {
+      threeHost.innerHTML = clawSvgMarkup();
+    }
+  }
+
   const gantry = overlay.querySelector('#clawGantry');
   const gantryScale = overlay.querySelector('#clawGantryScale');
   const cordPack = overlay.querySelector('#clawCordPack');
@@ -828,7 +847,18 @@ function openClawMachine(state, rerender) {
   const resultBox = overlay.querySelector('.claw-result');
   const doneBtn = overlay.querySelector('#clawDone');
 
-  if (!gantry || !cordPack || !hookL || !hookR || !caughtOrbEl || !sliderX || !sliderZ || !dropBtn) {
+  const svgReady =
+    gantry &&
+    cordPack &&
+    hookL &&
+    hookR &&
+    caughtOrbEl &&
+    orbGroups.length === 3 &&
+    sliderX &&
+    sliderZ &&
+    dropBtn;
+  const mode3d = !!sceneApi;
+  if (!mode3d && !svgReady) {
     const cr = resolveClawCatch(clawX, clawZ);
     if (cr.caught) {
       const fallback = rollClawReward(cr.prizeIdx);
@@ -837,6 +867,20 @@ function openClawMachine(state, rerender) {
       toast(`Prize applied: ${fallback.title}`);
     } else {
       toast(cr.kind === 'wide' ? 'Claw missed (no prize).' : 'Prize slipped (no reward).', true);
+    }
+    rerender();
+    return;
+  }
+  if (mode3d && (!sliderX || !sliderZ || !dropBtn)) {
+    sceneApi?.dispose();
+    const cr = resolveClawCatch(clawX, clawZ);
+    if (cr.caught) {
+      const fallback = rollClawReward(cr.prizeIdx);
+      fallback.apply(state);
+      saveState(state);
+      toast(`Prize applied: ${fallback.title}`);
+    } else {
+      toast('Claw UI failed to load.', true);
     }
     rerender();
     return;
@@ -852,14 +896,18 @@ function openClawMachine(state, rerender) {
   function applyClawPose() {
     clawX = Math.max(CLAW_SVG_X_MIN, Math.min(CLAW_SVG_X_MAX, clawX));
     clawZ = Math.max(0, Math.min(1, clawZ));
-    const gy =
-      CLAW_GANTRY_Y_FRONT -
-      clawZ * (CLAW_GANTRY_Y_FRONT - CLAW_GANTRY_Y_BACK);
-    const gs =
-      CLAW_GANTRY_SCALE_FRONT -
-      clawZ * (CLAW_GANTRY_SCALE_FRONT - CLAW_GANTRY_SCALE_BACK);
-    gantry.setAttribute('transform', `translate(${clawX}, ${gy})`);
-    if (gantryScale) gantryScale.setAttribute('transform', `scale(${gs})`);
+    if (mode3d) {
+      sceneApi.setClawFromUi(clawX, clawZ);
+    } else {
+      const gy =
+        CLAW_GANTRY_Y_FRONT -
+        clawZ * (CLAW_GANTRY_Y_FRONT - CLAW_GANTRY_Y_BACK);
+      const gs =
+        CLAW_GANTRY_SCALE_FRONT -
+        clawZ * (CLAW_GANTRY_SCALE_FRONT - CLAW_GANTRY_SCALE_BACK);
+      gantry.setAttribute('transform', `translate(${clawX}, ${gy})`);
+      if (gantryScale) gantryScale.setAttribute('transform', `scale(${gs})`);
+    }
     sliderX.value = String(Math.round(clawX));
     sliderZ.value = String(Math.round(clawZ * 100));
   }
@@ -868,6 +916,7 @@ function openClawMachine(state, rerender) {
 
   function closeModal() {
     if (!finished) return;
+    sceneApi?.dispose();
     overlay.remove();
     rerender();
   }
@@ -928,7 +977,11 @@ function openClawMachine(state, rerender) {
   document.body.appendChild(overlay);
   dropBtn.focus();
 
-  cordPack.style.transform = `scaleY(${CORD_SCALE_RETRACT})`;
+  if (mode3d) {
+    sceneApi.setCordRetracted();
+  } else {
+    cordPack.style.transform = `scaleY(${CORD_SCALE_RETRACT})`;
+  }
 
   dropBtn.addEventListener('click', () => {
     if (phase !== 'aim') return;
@@ -959,6 +1012,26 @@ function openClawMachine(state, rerender) {
       };
 
       try {
+        if (mode3d) {
+          statusEl.textContent = 'Lowering claw…';
+          await sceneApi.runDropAnimation(catchRes);
+          if (!catchRes.caught) {
+            sceneApi.resetAfterMiss();
+            const missTitle = catchRes.kind === 'wide' ? 'Complete miss' : 'Slipped free';
+            const missBody =
+              catchRes.kind === 'wide'
+                ? 'Off in side-to-side, depth, or both — the pile sits around mid-depth. Line up over a sphere in 3D before you drop.'
+                : 'You had contact but the orb rolled out — classic claw behavior. Tighter alignment improves odds but never guarantees a win.';
+            showResult(missTitle, missBody, 'No prize');
+            return;
+          }
+          statusEl.textContent = '';
+          outcome.apply(state);
+          saveState(state);
+          showResult(outcome.title, outcome.detail, outcome.chip);
+          return;
+        }
+
         statusEl.textContent = 'Lowering claw…';
         await cordPack.animate(
           [
@@ -1254,7 +1327,11 @@ function render(state, root) {
   const expandCost = SLOT_EXPAND_COST(state.slotCount);
   const canExpand = state.slotCount < SLOT_MAX && state.coins >= expandCost;
 
-  const clawHandler = () => openClawMachine(state, () => render(state, root));
+  const clawHandler = () => {
+    void openClawMachine(state, () => render(state, root)).catch(() => {
+      toast('Could not open claw machine.', true);
+    });
+  };
   const activeTab = getActiveTab();
   const isHome = activeTab === 'home';
   const isFloor = activeTab === 'floor';
