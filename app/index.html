@@ -238,7 +238,26 @@
             border-color: rgba(220, 38, 38, 0.55);
             opacity: 0.95;
         }
-        .cabinet .emoji { font-size: 1.75rem; text-align: center; margin-bottom: 4px; line-height: 1; }
+        .cabinet .cab-art {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 88px;
+            margin-bottom: 4px;
+        }
+        .cabinet .machine-img {
+            width: 72px;
+            height: 88px;
+            object-fit: contain;
+            filter: drop-shadow(0 3px 6px rgba(0,0,0,0.4));
+        }
+        .cabinet.broken .machine-img {
+            filter: grayscale(0.85) brightness(0.75) drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+        }
+        .machine-fallback {
+            font-size: 1.5rem;
+            opacity: 0.5;
+        }
         .cabinet .name { font-size: 0.8125rem; font-weight: 700; text-align: center; color: var(--text); }
         .cabinet .meta { font-size: 0.6875rem; color: var(--muted); text-align: center; margin-top: 6px; line-height: 1.35; }
         .cabinet .actions { margin-top: auto; display: flex; flex-direction: column; gap: 6px; }
@@ -271,7 +290,20 @@
             border-radius: 12px;
             padding: 12px;
         }
-        .shop-item .ico { font-size: 1.75rem; line-height: 1; }
+        .shop-item .ico {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 56px;
+            height: 70px;
+        }
+        .shop-item .machine-thumb {
+            width: 56px;
+            height: 70px;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35));
+        }
         .shop-item .info { flex: 1; min-width: 0; }
         .shop-item .info .n { font-size: 0.875rem; font-weight: 700; color: var(--text); }
         .shop-item .info .d { font-size: 0.75rem; color: var(--muted); margin-top: 4px; line-height: 1.45; }

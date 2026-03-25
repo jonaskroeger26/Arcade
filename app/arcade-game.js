@@ -9,11 +9,37 @@ export const ARCADE_DEVNET = {
   cluster: 'devnet',
 };
 
+function assetBase() {
+  const b =
+    typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL != null
+      ? import.meta.env.BASE_URL
+      : '/';
+  return b.endsWith('/') ? b : `${b}/`;
+}
+
+/** @param {{ id: string, name: string } | undefined} t @param {'floor' | 'shop'} context */
+function machineImageHtml(t, context) {
+  if (!t?.id)
+    return '<span class="machine-fallback" aria-hidden="true">?</span>';
+  const src = `${assetBase()}machines/${t.id}.svg`;
+  if (context === 'shop') {
+    return `<img class="machine-thumb" src="${src}" alt="${escapeHtml(t.name)}" width="56" height="70" loading="lazy" decoding="async" />`;
+  }
+  return `<img class="machine-img" src="${src}" alt="${escapeHtml(t.name)}" width="72" height="88" loading="lazy" decoding="async" />`;
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 const MACHINE_TYPES = [
   {
     id: 'pixelpit',
     name: 'Pixel Pit',
-    emoji: '🕹️',
     cost: 45,
     income: 0.7,
     breakdown: 0.00018,
@@ -22,7 +48,6 @@ const MACHINE_TYPES = [
   {
     id: 'thunderpin',
     name: 'Thunder Pinball',
-    emoji: '📌',
     cost: 110,
     income: 1.35,
     breakdown: 0.00032,
@@ -31,7 +56,6 @@ const MACHINE_TYPES = [
   {
     id: 'neonracer',
     name: 'Neon Racer',
-    emoji: '🏎️',
     cost: 220,
     income: 2.2,
     breakdown: 0.0004,
@@ -40,7 +64,6 @@ const MACHINE_TYPES = [
   {
     id: 'rhythm',
     name: 'Beat Cab',
-    emoji: '🎵',
     cost: 380,
     income: 3.1,
     breakdown: 0.00038,
@@ -49,7 +72,6 @@ const MACHINE_TYPES = [
   {
     id: 'crane',
     name: 'Prize Crane',
-    emoji: '🦀',
     cost: 650,
     income: 4.8,
     breakdown: 0.0005,
@@ -58,7 +80,6 @@ const MACHINE_TYPES = [
   {
     id: 'vector',
     name: 'Vector Legends',
-    emoji: '✨',
     cost: 1200,
     income: 8.5,
     breakdown: 0.00055,
@@ -514,7 +535,7 @@ function render(state, root) {
     const maxed = lv >= CABINET_MAX_LEVEL;
     floorSlots.push(`
       <div class="cabinet ${m.broken ? 'broken' : ''} ${rush ? 'rush' : ''}" data-mid="${m.id}">
-        <div class="emoji">${t?.emoji || '❔'}</div>
+        <div class="cab-art">${machineImageHtml(t, 'floor')}</div>
         <div class="name">${t?.name || 'Unknown'}</div>
         <div class="meta">${m.broken ? '<span style="color:#fecaca;font-weight:600">Out of order</span>' : `<strong>Lv ${lv}</strong> · ${inc.toFixed(1)} ¢/s`}${setMult > 1 ? `<br>Set ×${setMult.toFixed(2)}` : ''}</div>
         <div class="actions">
@@ -531,7 +552,7 @@ function render(state, root) {
     const can = !full && state.coins >= t.cost;
     return `
       <div class="shop-item">
-        <div class="ico">${t.emoji}</div>
+        <div class="ico">${machineImageHtml(t, 'shop')}</div>
         <div class="info">
           <div class="n">${t.name}</div>
           <div class="d">${t.income.toFixed(1)}¢/s base · ${t.tag} · place in your room</div>
