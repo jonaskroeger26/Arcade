@@ -378,10 +378,11 @@ function tick(state) {
 }
 
 const CLAW_PIT_COLORS = ['#ec4899', '#f59e0b', '#10b981'];
-/** viewBox 0–360 wide: gantry horizontal travel. */
-const CLAW_SVG_X_MIN = 88;
-const CLAW_SVG_X_MAX = 272;
-const CLAW_BALL_CX = [108, 180, 252];
+/** Gantry travel (matches perspective rail; viewBox 360 wide). */
+const CLAW_SVG_X_MIN = 84;
+const CLAW_SVG_X_MAX = 276;
+/** Orb centers on the perspective prize row (SVG X). */
+const CLAW_BALL_CX = [112, 180, 248];
 /** Prize pile sits ~this depth (0 = front glass, 1 = back wall). */
 const CLAW_Z_ORB_PLANE = 0.5;
 /** Max combined (side + depth) miss distance before a grab attempt fails outright. */
@@ -521,9 +522,24 @@ function clawSvgMarkup() {
         <linearGradient id="clawVoid" x1="50%" y1="0%" x2="50%" y2="100%">
           <stop offset="0%" stop-color="#1c1917"/><stop offset="55%" stop-color="#0f0e0d"/><stop offset="100%" stop-color="#050403"/>
         </linearGradient>
+        <linearGradient id="clawWallLeft" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#3d2525"/><stop offset="100%" stop-color="#1c1212"/>
+        </linearGradient>
+        <linearGradient id="clawWallRight" x1="100%" y1="0%" x2="0%" y2="0%">
+          <stop offset="0%" stop-color="#3d2525"/><stop offset="100%" stop-color="#1c1212"/>
+        </linearGradient>
+        <linearGradient id="clawFloor3d" x1="50%" y1="100%" x2="50%" y2="0%">
+          <stop offset="0%" stop-color="#4a3d32"/><stop offset="45%" stop-color="#2d241c"/><stop offset="100%" stop-color="#1a1512"/>
+        </linearGradient>
+        <linearGradient id="clawCeil3d" x1="50%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%" stop-color="#2a2420"/><stop offset="100%" stop-color="#151210"/>
+        </linearGradient>
         <radialGradient id="clawInteriorVignette" cx="50%" cy="42%" r="65%">
           <stop offset="0%" stop-color="rgba(40,35,32,0.45)"/><stop offset="70%" stop-color="rgba(10,8,8,0.2)"/><stop offset="100%" stop-color="rgba(0,0,0,0.55)"/>
         </radialGradient>
+        <clipPath id="clawChamberClip">
+          <rect x="30" y="82" width="300" height="202" rx="9"/>
+        </clipPath>
         <linearGradient id="clawDeckPlastic" x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stop-color="#262626"/><stop offset="100%" stop-color="#0a0a0a"/>
         </linearGradient>
@@ -567,25 +583,39 @@ function clawSvgMarkup() {
       <!-- Window gasket (rubber) -->
       <rect x="22" y="74" width="316" height="218" rx="12" fill="#171717"/>
       <rect x="26" y="78" width="308" height="210" rx="10" fill="#0a0a0a" stroke="#27272a" stroke-width="1"/>
-      <!-- Playfield interior -->
-      <rect x="30" y="82" width="300" height="202" rx="9" fill="url(#clawVoid)"/>
-      <rect x="30" y="82" width="300" height="202" rx="9" fill="url(#clawInteriorVignette)" pointer-events="none"/>
-      <rect x="42" y="94" width="276" height="68" rx="5" fill="rgba(255,200,160,0.04)" stroke="none"/>
-      <!-- Carpet pile -->
-      <ellipse cx="180" cy="236" rx="130" ry="26" fill="#2d241c"/>
-      <ellipse cx="180" cy="230" rx="120" ry="19" fill="#3d3228"/>
-      <ellipse cx="180" cy="224" rx="104" ry="12" fill="#4a3f35" opacity="0.7"/>
-      <ellipse cx="180" cy="220" rx="90" ry="8" fill="rgba(251,191,36,0.07)"/>
-      <!-- Prizes -->
-      <g class="claw-orbs" filter="url(#clawOrbShadow)">
-        <g transform="translate(108,192)"><ellipse cx="0" cy="14" rx="22" ry="10" fill="#1a1008" opacity="0.65"/><circle r="20" fill="url(#clawOrb0)"/><ellipse cx="-7" cy="-8" rx="9" ry="5" fill="rgba(255,255,255,0.5)"/></g>
-        <g transform="translate(180,192)"><ellipse cx="0" cy="14" rx="22" ry="10" fill="#1a1008" opacity="0.65"/><circle r="20" fill="url(#clawOrb1)"/><ellipse cx="-7" cy="-8" rx="9" ry="5" fill="rgba(255,255,255,0.5)"/></g>
-        <g transform="translate(252,192)"><ellipse cx="0" cy="14" rx="22" ry="10" fill="#1a1008" opacity="0.65"/><circle r="20" fill="url(#clawOrb2)"/><ellipse cx="-7" cy="-8" rx="9" ry="5" fill="rgba(255,255,255,0.5)"/></g>
+      <!-- One-point perspective chamber (clipped) — CSS 3D tilt on wrapper completes the volume -->
+      <g clip-path="url(#clawChamberClip)">
+        <rect x="30" y="82" width="300" height="202" fill="url(#clawVoid)"/>
+        <!-- Ceiling plane (recedes toward back) -->
+        <path d="M 84 90 L 276 90 L 268 102 L 92 102 Z" fill="url(#clawCeil3d)" opacity="0.95"/>
+        <path d="M 84 90 L 276 90" stroke="rgba(255,255,255,0.05)" stroke-width="0.75"/>
+        <!-- Back wall -->
+        <path d="M 92 102 L 268 102 L 264 174 L 96 174 Z" fill="#14110f" stroke="rgba(255,200,170,0.04)" stroke-width="0.75"/>
+        <!-- Side walls (box corners) -->
+        <path d="M 32 86 L 92 102 L 96 174 L 48 258 L 34 246 Z" fill="url(#clawWallLeft)"/>
+        <path d="M 328 86 L 268 102 L 264 174 L 312 258 L 326 246 Z" fill="url(#clawWallRight)"/>
+        <path d="M 30 86 L 92 102" stroke="rgba(0,0,0,0.35)" stroke-width="1"/>
+        <path d="M 328 86 L 268 102" stroke="rgba(0,0,0,0.35)" stroke-width="1"/>
+        <!-- Floor plane (trapezoid — wide toward player) -->
+        <path d="M 40 262 L 320 262 L 264 174 L 96 174 Z" fill="url(#clawFloor3d)"/>
+        <path d="M 96 174 L 264 174 L 320 262" stroke="rgba(0,0,0,0.4)" stroke-width="0.8" opacity="0.7"/>
+        <!-- Carpet pile on floor -->
+        <ellipse cx="180" cy="232" rx="118" ry="22" fill="#2d241c" transform="skewX(-6)"/>
+        <ellipse cx="180" cy="225" rx="108" ry="17" fill="#3d3228" opacity="0.9" transform="skewX(-5)"/>
+        <ellipse cx="180" cy="218" rx="92" ry="11" fill="#52463b" opacity="0.65" transform="skewX(-4)"/>
+        <ellipse cx="180" cy="212" rx="76" ry="7" fill="rgba(251,191,36,0.08)" transform="skewX(-3)"/>
+        <!-- Prizes on prize row (slightly smaller at sides = depth cue) -->
+        <g class="claw-orbs" filter="url(#clawOrbShadow)">
+          <g transform="translate(112,188) scale(0.94)"><ellipse cx="0" cy="14" rx="22" ry="10" fill="#1a1008" opacity="0.65"/><circle r="20" fill="url(#clawOrb0)"/><ellipse cx="-7" cy="-8" rx="9" ry="5" fill="rgba(255,255,255,0.5)"/></g>
+          <g transform="translate(180,189)"><ellipse cx="0" cy="14" rx="22" ry="10" fill="#1a1008" opacity="0.65"/><circle r="20" fill="url(#clawOrb1)"/><ellipse cx="-7" cy="-8" rx="9" ry="5" fill="rgba(255,255,255,0.5)"/></g>
+          <g transform="translate(248,188) scale(0.94)"><ellipse cx="0" cy="14" rx="22" ry="10" fill="#1a1008" opacity="0.65"/><circle r="20" fill="url(#clawOrb2)"/><ellipse cx="-7" cy="-8" rx="9" ry="5" fill="rgba(255,255,255,0.5)"/></g>
+        </g>
       </g>
-      <!-- Overhead I-beam rail -->
-      <rect x="58" y="76" width="244" height="12" rx="3" fill="#1c1917" stroke="#44403c" stroke-width="0.75"/>
-      <rect x="62" y="78.5" width="236" height="5" rx="1.5" fill="url(#clawRailMetal)"/>
-      <line x1="62" y1="80.5" x2="298" y2="80.5" stroke="rgba(255,255,255,0.45)" stroke-width="0.75" opacity="0.8"/>
+      <rect x="30" y="82" width="300" height="202" rx="9" fill="url(#clawInteriorVignette)" pointer-events="none"/>
+      <!-- Rail in perspective (narrower toward back) -->
+      <path d="M 66 82 L 294 82 L 288 93 L 72 93 Z" fill="#1c1917" stroke="#44403c" stroke-width="0.75"/>
+      <path d="M 70 84.5 L 290 84.5 L 285 90.5 L 75 90.5 Z" fill="url(#clawRailMetal)"/>
+      <path d="M 72 86.5 L 286 86.5" stroke="rgba(255,255,255,0.4)" stroke-width="0.85"/>
       <!-- Claw (chrome, lit — draw above prizes) -->
       <g id="clawGantry" transform="translate(180, 56)">
         <g id="clawGantryScale">
@@ -657,9 +687,9 @@ function openClawMachine(state, rerender) {
     <div class="modal claw-modal" role="dialog" aria-modal="true" aria-labelledby="claw-heading">
       <div class="modal-inner">
         <h3 id="claw-heading">Prize claw</h3>
-        <p class="claw-sub">${CLAW_UNLIMITED_TEST ? `Test play ${played} today · aim the cyan footprint over a ball (side + depth). Depth ≈ halfway = prize row. Then drop — grabs can still miss.` : `Play ${played} / ${CLAW_PLAYS_PER_DAY} · line up side-to-side and front/back. Sliders at mid-depth match the pile.`}</p>
+        <p class="claw-sub">${CLAW_UNLIMITED_TEST ? `Test play ${played} · real CSS 3D tilt + perspective room inside the glass. Aim the footprint (side + depth), then drop.` : `Play ${played} / ${CLAW_PLAYS_PER_DAY} · perspective cabinet: use side + depth so the claw lines up with the prize row.`}</p>
         <div class="claw-stage-wrap claw-stage-3d">
-          ${clawSvgMarkup()}
+          <div class="claw-perspective-tilt">${clawSvgMarkup()}</div>
         </div>
         <div class="claw-controls">
           <div class="claw-controls-row">
