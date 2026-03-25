@@ -562,14 +562,16 @@
             border-radius: 12px;
             overflow: hidden;
             border: 1px solid var(--border);
-            background: linear-gradient(180deg, #1c1917 0%, #0c0a09 55%, #090706 100%);
+            background: radial-gradient(ellipse 80% 60% at 50% 70%, #1a1816 0%, #0c0a09 55%, #090706 100%);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
         }
         .claw-stage-3d { line-height: 0; }
         .claw-svg {
             width: 100%;
             height: auto;
             display: block;
-            max-height: min(60vh, 400px);
+            max-height: min(56vh, 360px);
+            shape-rendering: geometricPrecision;
         }
         .claw-controls {
             display: flex;
