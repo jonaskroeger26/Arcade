@@ -344,42 +344,250 @@ function tick(state) {
   saveState(state);
 }
 
-function playClaw(state, rerender) {
+const CLAW_PIT_COLORS = ['#ec4899', '#f59e0b', '#10b981'];
+const CLAW_TROLLEY_X = [-40, 0, 40];
+
+function rollClawOutcome() {
+  const prizeIdx = Math.floor(Math.random() * 3);
+  const prizeBall = CLAW_PIT_COLORS[prizeIdx];
+  const r = Math.random();
+  if (r < 0.28) {
+    const credits = 55 + Math.floor(Math.random() * 280);
+    return {
+      prizeIdx,
+      prizeBall,
+      apply(s) {
+        s.coins += credits;
+      },
+      title: 'Credit bundle',
+      detail: `${credits} credits were added to your floor operating balance.`,
+      chip: 'Economy',
+    };
+  }
+  if (r < 0.52) {
+    const n = 1 + Math.floor(Math.random() * 3);
+    return {
+      prizeIdx,
+      prizeBall,
+      apply(s) {
+        s.tickets += n;
+      },
+      title: 'Admission tickets',
+      detail: `${n} ticket${n > 1 ? 's are' : ' is'} now available for rush events and upgrades.`,
+      chip: 'Access',
+    };
+  }
+  if (r < 0.68) {
+    const bump = 6 + Math.floor(Math.random() * 8);
+    return {
+      prizeIdx,
+      prizeBall,
+      apply(s) {
+        s.hype = Math.min(100, s.hype + bump);
+      },
+      title: 'Crowd pull',
+      detail: `Foot traffic interest increased by ${bump} points. Revenue modifiers improved.`,
+      chip: 'Marketing',
+    };
+  }
+  if (r < 0.84) {
+    const bump = 5 + Math.floor(Math.random() * 8);
+    return {
+      prizeIdx,
+      prizeBall,
+      apply(s) {
+        s.comfort = Math.min(100, s.comfort + bump);
+      },
+      title: 'Facility upgrade kit',
+      detail: `Guest comfort rose ${bump} points. Equipment stress scales down slightly.`,
+      chip: 'Operations',
+    };
+  }
+  if (r < 0.94) {
+    const credits = 120 + Math.floor(Math.random() * 200);
+    return {
+      prizeIdx,
+      prizeBall,
+      apply(s) {
+        s.coins += credits;
+        s.tickets += 1;
+      },
+      title: 'Premium pull',
+      detail: `${credits} credits plus one bonus ticket — strong session outcome.`,
+      chip: 'Jackpot',
+    };
+  }
+  return {
+    prizeIdx,
+    prizeBall,
+    apply(s) {
+      s.tickets += 4;
+      s.bp.xp += 120;
+    },
+    title: 'Limited collectible',
+    detail: 'Rare prize: four tickets and a season-pass XP boost.',
+    chip: 'Rare',
+  };
+}
+
+function openClawMachine(state, rerender) {
   ensureClawDay(state);
   if (state.claw.plays >= CLAW_PLAYS_PER_DAY) {
-    toast('No claw plays left today. Come back tomorrow!', true);
+    toast('Daily claw plays are exhausted. Resets at midnight UTC.', true);
     return;
   }
   state.claw.plays += 1;
-  const r = Math.random();
-  let msg = '';
-  if (r < 0.28) {
-    const c = 55 + Math.floor(Math.random() * 280);
-    state.coins += c;
-    msg = `Grabbed ${c} credits!`;
-  } else if (r < 0.52) {
-    const n = 1 + Math.floor(Math.random() * 3);
-    state.tickets += n;
-    msg = `Won ${n} ticket${n > 1 ? 's' : ''}!`;
-  } else if (r < 0.68) {
-    state.hype = Math.min(100, state.hype + 6 + Math.floor(Math.random() * 8));
-    msg = 'Crowd loved it — hype up!';
-  } else if (r < 0.84) {
-    state.comfort = Math.min(100, state.comfort + 5 + Math.floor(Math.random() * 8));
-    msg = 'Prize kit — room feels nicer!';
-  } else if (r < 0.94) {
-    const c = 120 + Math.floor(Math.random() * 200);
-    state.coins += c;
-    state.tickets += 1;
-    msg = `Jackpot pull! ${c} credits + a ticket`;
-  } else {
-    state.tickets += 4;
-    state.bp.xp += 120;
-    msg = 'Rare plush — 4 tickets + pass XP!';
-  }
-  toast(msg);
   saveState(state);
   rerender();
+
+  const outcome = rollClawOutcome();
+  const tx = CLAW_TROLLEY_X[outcome.prizeIdx];
+  const played = state.claw.plays;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-bg';
+  let finished = false;
+
+  overlay.innerHTML = `
+    <div class="modal claw-modal" role="dialog" aria-modal="true" aria-labelledby="claw-heading">
+      <div class="modal-inner">
+        <h3 id="claw-heading">Prize claw</h3>
+        <p class="claw-sub">Play ${played} of ${CLAW_PLAYS_PER_DAY} today · Outcome is sealed when the grab completes</p>
+        <div class="claw-stage-wrap">
+          <div class="claw-stage">
+            <div class="claw-beam"></div>
+            <div class="claw-trolley">
+              <div class="claw-carriage-top"></div>
+              <div class="claw-cord"></div>
+              <div class="claw-head">
+                <div class="claw-magnet"></div>
+                <div class="claw-hooks">
+                  <div class="claw-hook"></div>
+                  <div class="claw-hook right"></div>
+                </div>
+                <div class="claw-caught"></div>
+              </div>
+            </div>
+            <div class="claw-pit">
+              <div class="pit-prize" style="background:linear-gradient(145deg,${CLAW_PIT_COLORS[0]},#9d174d)"></div>
+              <div class="pit-prize" style="background:linear-gradient(145deg,${CLAW_PIT_COLORS[1]},#b45309)"></div>
+              <div class="pit-prize" style="background:linear-gradient(145deg,${CLAW_PIT_COLORS[2]},#047857)"></div>
+            </div>
+            <div class="claw-glass"></div>
+          </div>
+        </div>
+        <p class="claw-status" style="min-height:1.2em;font-size:0.8125rem;color:var(--text-secondary);margin-top:12px"></p>
+        <div class="claw-result">
+          <div class="result-title"></div>
+          <div class="result-body"></div>
+          <span class="result-chip"></span>
+        </div>
+        <div class="claw-actions">
+          <button type="button" class="btn-secondary" id="clawDone" disabled style="flex:1">Close</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const trolley = overlay.querySelector('.claw-trolley');
+  const cord = overlay.querySelector('.claw-cord');
+  const caught = overlay.querySelector('.claw-caught');
+  const leftHook = overlay.querySelector('.claw-hook:not(.right)');
+  const rightHook = overlay.querySelector('.claw-hook.right');
+  const statusEl = overlay.querySelector('.claw-status');
+  const resultBox = overlay.querySelector('.claw-result');
+  const doneBtn = overlay.querySelector('#clawDone');
+  if (!trolley || !cord || !caught || !leftHook || !rightHook) {
+    outcome.apply(state);
+    saveState(state);
+    toast(`Prize applied: ${outcome.title}`);
+    rerender();
+    return;
+  }
+
+  caught.style.background = `linear-gradient(145deg, ${outcome.prizeBall}, rgba(0,0,0,0.35))`;
+  caught.style.opacity = '0';
+  caught.style.transform = 'scale(0.4)';
+
+  const pitPrizes = overlay.querySelectorAll('.pit-prize');
+
+  function closeModal() {
+    if (!finished) return;
+    overlay.remove();
+    rerender();
+  }
+
+  doneBtn?.addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay && finished) closeModal();
+  });
+
+  document.body.appendChild(overlay);
+
+  const easeOut = 'cubic-bezier(0.33, 1, 0.68, 1)';
+  const easeInOut = 'cubic-bezier(0.4, 0, 0.2, 1)';
+
+  (async () => {
+    try {
+      statusEl.textContent = 'Aligning gantry…';
+      await trolley.animate(
+        [{ transform: 'translateX(0)' }, { transform: `translateX(${tx}px)` }],
+        { duration: 720, easing: easeInOut },
+      ).finished;
+
+      statusEl.textContent = 'Lowering claw assembly…';
+      await cord.animate(
+        [{ transform: 'scaleY(0.22)' }, { transform: 'scaleY(1)' }],
+        { duration: 1050, fill: 'forwards', easing: easeOut },
+      ).finished;
+
+      statusEl.textContent = 'Closing grabber…';
+      await Promise.all([
+        leftHook.animate(
+          [{ transform: 'rotate(12deg)' }, { transform: 'rotate(34deg)' }],
+          { duration: 260, fill: 'forwards' },
+        ).finished,
+        rightHook.animate(
+          [{ transform: 'rotate(-12deg)' }, { transform: 'rotate(-34deg)' }],
+          { duration: 260, fill: 'forwards' },
+        ).finished,
+      ]);
+
+      caught.style.opacity = '1';
+      caught.style.transform = 'scale(1)';
+      pitPrizes.forEach((el, i) => {
+        if (i !== outcome.prizeIdx) el.classList.add('dim');
+      });
+
+      statusEl.textContent = 'Extracting prize…';
+      await cord.animate(
+        [{ transform: 'scaleY(1)' }, { transform: 'scaleY(0.26)' }],
+        { duration: 880, easing: easeInOut },
+      ).finished;
+
+      outcome.apply(state);
+      saveState(state);
+
+      statusEl.textContent = '';
+      resultBox.querySelector('.result-title').textContent = outcome.title;
+      resultBox.querySelector('.result-body').textContent = outcome.detail;
+      resultBox.querySelector('.result-chip').textContent = outcome.chip;
+      resultBox.classList.add('visible');
+      if (doneBtn) doneBtn.disabled = false;
+      finished = true;
+      rerender();
+    } catch (err) {
+      outcome.apply(state);
+      saveState(state);
+      finished = true;
+      if (doneBtn) doneBtn.disabled = false;
+      statusEl.textContent = '';
+      resultBox.querySelector('.result-title').textContent = outcome.title;
+      resultBox.querySelector('.result-body').textContent = outcome.detail;
+      resultBox.querySelector('.result-chip').textContent = outcome.chip;
+      resultBox.classList.add('visible');
+      rerender();
+    }
+  })();
 }
 
 function claimBp(state, tier, track) {
@@ -460,11 +668,11 @@ function openBattlePassModal(state, rerender) {
     <div class="modal">
       <button class="close" type="button">Close</button>
       <h3>Season pass</h3>
-      <p style="font-size:0.8125rem;color:var(--muted);line-height:1.5;">
-        Earn XP from arcade income. Claim milestones when you unlock each tier.
+      <p style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.5;">
+        Earn XP from floor revenue. Unlock tiers to claim structured rewards.
       </p>
       <div class="progress"><i style="width:${Math.min(100, (state.bp.tier / BP_MAX_TIER) * 100)}%"></i></div>
-      <p style="font-size:0.75rem;color:var(--muted);">Tier ${state.bp.tier} / ${BP_MAX_TIER} · XP ${Math.floor(state.bp.xp)}</p>
+      <p style="font-size:0.75rem;color:var(--text-secondary);">Tier ${state.bp.tier} / ${BP_MAX_TIER} · XP ${Math.floor(state.bp.xp)}</p>
       <div class="bp-track" id="bpTrack"></div>
     </div>
   `;
@@ -476,7 +684,7 @@ function openBattlePassModal(state, rerender) {
       'bp-tier' + (state.bp.tier >= t ? ' active' : '') + (freeClaimed ? ' claimed' : '');
     row.innerHTML = `
       <span>T${t}</span>
-      <span style="flex:1;color:var(--muted)">Credits, tickets & room buffs</span>
+      <span style="flex:1;color:var(--text-secondary)">Credits, tickets & room buffs</span>
       <button type="button" data-free="${t}">Free</button>
       <button type="button" data-prem="${t}" ${state.bp.premium ? '' : 'disabled'}>Premium</button>
     `;
@@ -484,9 +692,9 @@ function openBattlePassModal(state, rerender) {
   }
   if (!state.bp.premium) {
     const hint = document.createElement('p');
-    hint.style.cssText = 'margin-top:12px;font-size:0.75rem;color:var(--muted)';
+    hint.style.cssText = 'margin-top:12px;font-size:0.75rem;color:var(--text-secondary)';
     hint.textContent =
-      'Premium: hook up later. Dev: set bp.premium true in localStorage save.';
+      'Premium track will connect to checkout or NFT gate. Enable bp.premium in save data for QA.';
     bg.querySelector('.modal').appendChild(hint);
   }
   bg.querySelector('.close').onclick = () => bg.remove();
@@ -515,8 +723,8 @@ function render(state, root) {
   const clawLeft = Math.max(0, CLAW_PLAYS_PER_DAY - state.claw.plays);
   const clawLabel =
     clawLeft === 0
-      ? 'Claw — back tomorrow'
-      : `Claw drop — ${clawLeft} play${clawLeft === 1 ? '' : 's'} left today`;
+      ? 'Prize claw · Available tomorrow (UTC)'
+      : `Prize claw · ${clawLeft} of ${CLAW_PLAYS_PER_DAY} plays remaining`;
 
   const floorSlots = [];
   for (let i = 0; i < state.slotCount; i++) {
@@ -540,7 +748,7 @@ function render(state, root) {
         <div class="meta">${m.broken ? '<span style="color:#fecaca;font-weight:600">Out of order</span>' : `<strong>Lv ${lv}</strong> · ${inc.toFixed(1)} ¢/s`}${setMult > 1 ? `<br>Set ×${setMult.toFixed(2)}` : ''}</div>
         <div class="actions">
           ${!m.broken && !maxed ? `<button type="button" class="btn-upgrade" data-upgrade="${m.id}">Upgrade (${uc}¢)</button>` : ''}
-          ${!m.broken && maxed ? `<span style="font-size:0.6875rem;color:var(--muted);text-align:center">Max level</span>` : ''}
+          ${!m.broken && maxed ? `<span style="font-size:0.6875rem;color:var(--text-secondary);text-align:center">Max level</span>` : ''}
           ${m.broken ? `<button type="button" class="btn-repair" data-repair="${m.id}">Repair ${rc}¢</button>` : ''}
         </div>
       </div>
@@ -565,57 +773,80 @@ function render(state, root) {
   const expandCost = SLOT_EXPAND_COST(state.slotCount);
   const canExpand = state.slotCount < SLOT_MAX && state.coins >= expandCost;
 
+  const clawHandler = () => openClawMachine(state, () => render(state, root));
+
   root.innerHTML = `
     <div class="top">
-      <h1>Arcade Empire</h1>
-      <a href="https://github.com/jonaskroeger26/Arcade" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <div class="top-row">
+        <div>
+          <h1>Arcade Empire</h1>
+          <p class="subtitle">Venue operations: layout, equipment, and daily revenue drivers.</p>
+        </div>
+        <a href="https://github.com/jonaskroeger26/Arcade" target="_blank" rel="noopener noreferrer">Source</a>
+      </div>
     </div>
     <div class="hud">
-      <div class="stat"><div class="lbl">Credits</div><div class="val" id="coinsDisp">${Math.floor(state.coins)}¢</div></div>
+      <div class="stat"><div class="lbl">Floor credits</div><div class="val" id="coinsDisp">${Math.floor(state.coins)}¢</div></div>
       <div class="stat tickets"><div class="lbl">Tickets</div><div class="val" id="ticketsDisp">${state.tickets}</div></div>
-      <div class="stat hype"><div class="lbl">Hype</div><div class="val" id="hypeDisp">${Math.round(state.hype)}%</div></div>
-      <div class="stat"><div class="lbl">Comfort</div><div class="val" id="comfortDisp">${Math.round(state.comfort)}%</div></div>
+      <div class="stat hype"><div class="lbl">Foot traffic</div><div class="val" id="hypeDisp">${Math.round(state.hype)}%</div></div>
+      <div class="stat"><div class="lbl">Ambience</div><div class="val" id="comfortDisp">${Math.round(state.comfort)}%</div></div>
       <div class="stat token" style="grid-column:1/-1;">
-        <div class="lbl">ARCADE token (devnet)</div>
+        <div class="lbl">ARCADE token (Devnet)</div>
         <div class="val" id="walletArcadeBal">—</div>
       </div>
     </div>
+    <p class="toolbar-label">Actions</p>
     <div class="row-btns">
-      <button type="button" class="btn-wallet" id="btnWallet">${getSolana()?.publicKey ? 'Refresh wallet' : 'Connect wallet'}</button>
-      <button type="button" class="btn-rush" id="btnRush" ${rush || rushCd || state.tickets < 1 ? 'disabled' : ''}>
-        ${rush ? 'Rush live' : rushCd ? 'Rush cooling…' : 'Rush hour (1 ticket)'}
+      <button type="button" class="btn-secondary" id="btnWallet">${getSolana()?.publicKey ? 'Refresh wallet' : 'Connect wallet'}</button>
+      <button type="button" class="btn-amber" id="btnRush" ${rush || rushCd || state.tickets < 1 ? 'disabled' : ''}>
+        ${rush ? 'Rush active' : rushCd ? 'Rush cooling…' : 'Rush hour (1 ticket)'}
       </button>
-      <button type="button" class="btn-bp" id="btnBp">Battle pass</button>
-      <button type="button" class="btn-neon" id="btnExpand" ${canExpand ? '' : 'disabled'}>
-        Bigger room (${expandCost}¢) · ${state.slotCount}/${SLOT_MAX} spots
+      <button type="button" class="btn-muted" id="btnBp">Season pass</button>
+      <button type="button" class="btn-primary" id="btnExpand" ${canExpand ? '' : 'disabled'}>
+        Expand floor · ${expandCost}¢ (${state.slotCount}/${SLOT_MAX})
       </button>
       <button type="button" class="btn-claw" id="btnClaw" ${clawLeft === 0 ? 'disabled' : ''}>${clawLabel}</button>
     </div>
     <section>
-      <h2>Your room</h2>
+      <h2>Floor layout</h2>
       <div class="arcade-room">
         <div class="room-wall">
-          <div class="strip">· Neon row · Prize corner · Your floor ·</div>
+          <div class="strip">Live floor preview</div>
         </div>
         <div class="room-floor">
           <div class="claw-booth">
-            <div class="claw-label">Lobby claw · ${CLAW_PLAYS_PER_DAY} free tries / day</div>
-            <div class="claw-visual" aria-hidden="true">🎟️</div>
+            <div class="claw-booth-inner">
+              <svg class="claw-mini" viewBox="0 0 64 64" aria-hidden="true">
+                <rect x="8" y="10" width="48" height="4" rx="1" fill="#52525b"/>
+                <rect x="30" y="14" width="4" height="14" fill="#71717a"/>
+                <path d="M26 30 L32 38 L38 30" fill="#52525b"/>
+                <rect x="10" y="42" width="44" height="14" rx="2" fill="rgba(14,165,233,0.12)" stroke="#3f3f46"/>
+                <circle cx="24" cy="50" r="5" fill="#ec4899" opacity="0.85"/>
+                <circle cx="40" cy="50" r="5" fill="#f59e0b" opacity="0.85"/>
+              </svg>
+              <div style="flex:1;min-width:0">
+                <div class="claw-label">Lobby prize claw</div>
+                <p class="claw-hint">${CLAW_PLAYS_PER_DAY} complementary plays per day (UTC). Full animation with grab sequence.</p>
+                <button type="button" class="btn-secondary" id="clawBoothBtn" style="margin-top:10px;width:100%" ${clawLeft === 0 ? 'disabled' : ''}>Run prize claw</button>
+              </div>
+            </div>
           </div>
           <div class="floor-grid">${floorSlots.join('')}</div>
         </div>
       </div>
     </section>
     <section>
-      <h2>New cabinets</h2>
+      <h2>Equipment catalog</h2>
       <div class="shop">${shop}</div>
     </section>
-    <p style="font-size:0.75rem;color:var(--muted);text-align:center;line-height:1.5;margin-top:8px;">
-      Saves in browser. Mint <span style="color:#5eead4">${ARCADE_DEVNET.mint.slice(0, 6)}…</span>
+    <p class="footer-note">
+      Progress stored locally in this browser. Devnet mint <span style="color:#38bdf8">${ARCADE_DEVNET.mint.slice(0, 8)}…</span>
     </p>
   `;
 
-  root.querySelector('#btnClaw').onclick = () => playClaw(state, () => render(state, root));
+  root.querySelector('#btnClaw').onclick = clawHandler;
+  const boothBtn = root.querySelector('#clawBoothBtn');
+  if (boothBtn) boothBtn.onclick = clawHandler;
 
   root.querySelector('#btnWallet').onclick = async () => {
     const s = getSolana();
@@ -782,7 +1013,7 @@ function boot() {
         const cd = Date.now() < state.rushCooldownUntil;
         const need = state.tickets < 1;
         rushBtn.disabled = rush || cd || need;
-        rushBtn.textContent = rush ? 'Rush live' : cd ? 'Rush cooling…' : 'Rush hour (1 ticket)';
+        rushBtn.textContent = rush ? 'Rush active' : cd ? 'Rush cooling…' : 'Rush hour (1 ticket)';
       }
       ensureClawDay(state);
       const left = Math.max(0, CLAW_PLAYS_PER_DAY - state.claw.plays);
@@ -791,9 +1022,11 @@ function boot() {
         clawBtn.disabled = left === 0;
         clawBtn.textContent =
           left === 0
-            ? 'Claw — back tomorrow'
-            : `Claw drop — ${left} play${left === 1 ? '' : 's'} left today`;
+            ? 'Prize claw · Available tomorrow (UTC)'
+            : `Prize claw · ${left} of ${CLAW_PLAYS_PER_DAY} plays remaining`;
       }
+      const boothClaw = document.getElementById('clawBoothBtn');
+      if (boothClaw) boothClaw.disabled = left === 0;
     }
     requestAnimationFrame(loop);
   }
