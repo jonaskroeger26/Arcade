@@ -1,6 +1,8 @@
 /**
  * Arcade Empire — tycoon (room, cabinet upgrades, daily claw).
  */
+import * as gameAudio from './game-audio.js';
+
 const SAVE_KEY = 'arcade-empire-v2';
 const UI_TAB_KEY = 'arcade-ui-tab';
 
@@ -73,6 +75,8 @@ function commitPlacement(state, root) {
   });
   state.placementPending = null;
   saveState(state);
+  gameAudio.sfxPlace();
+  world3dApi?.placeBurst?.(g.wx, g.wz);
   toast(`${t.name} placed`);
   render(state, root);
 }
@@ -80,25 +84,26 @@ function commitPlacement(state, root) {
 async function ensureWorld3d() {
   const host = document.getElementById('world3dHost');
   if (!host) return;
-  if (world3dApi) {
-    world3dApi.sync(gameStateBag.current);
-    world3dApi.setActive(getActiveTab() === 'world');
-    return;
+  if (!world3dApi) {
+    const { createArcadeWorld } = await import('./arcade-world-3d.js');
+    world3dApi = createArcadeWorld(host, {
+      getState: () => gameStateBag.current,
+      getTagForTypeId: (id) => typeById(id)?.tag ?? 'casual',
+      isWorldTabActive: () => getActiveTab() === 'world',
+      onPlayerMoved: (p) => {
+        const s = gameStateBag.current;
+        if (!s) return;
+        s.player = { x: p.x, z: p.z, ry: p.ry };
+        saveState(s);
+      },
+    });
   }
-  const { createArcadeWorld } = await import('./arcade-world-3d.js');
-  world3dApi = createArcadeWorld(host, {
-    getState: () => gameStateBag.current,
-    getTagForTypeId: (id) => typeById(id)?.tag ?? 'casual',
-    isWorldTabActive: () => getActiveTab() === 'world',
-    onPlayerMoved: (p) => {
-      const s = gameStateBag.current;
-      if (!s) return;
-      s.player = { x: p.x, z: p.z, ry: p.ry };
-      saveState(s);
-    },
-  });
   world3dApi.sync(gameStateBag.current);
   world3dApi.setActive(getActiveTab() === 'world');
+  const joyHost = document.getElementById('worldTouchControls');
+  if (joyHost && world3dApi.attachTouchJoystick) {
+    world3dApi.attachTouchJoystick(joyHost);
+  }
 }
 
 function formatShortNumber(n) {
@@ -419,10 +424,15 @@ function upgradeCost(m) {
 
 function toast(msg, err) {
   const el = document.createElement('div');
-  el.className = err ? 'toast err' : 'toast';
+  el.className = err ? 'toast toast--err' : 'toast toast--ok';
+  el.setAttribute('role', 'status');
   el.textContent = msg;
   document.body.appendChild(el);
-  setTimeout(() => el.remove(), 2800);
+  if (err) gameAudio.sfxError();
+  setTimeout(() => {
+    el.classList.add('toast--out');
+    setTimeout(() => el.remove(), 220);
+  }, 2600);
 }
 
 let devnetConnection = null;
@@ -511,11 +521,13 @@ function tick(state) {
   state.bp.xp += gained * 0.22;
   while (state.bp.tier < BP_MAX_TIER && state.bp.xp >= BP_XP_PER_TIER * (state.bp.tier + 1)) {
     state.bp.tier += 1;
+    gameAudio.sfxTier();
     toast(`Battle pass tier ${state.bp.tier}!`);
   }
 
   if (Math.random() < 0.012 * dt && !rush) {
     state.tickets += 1;
+    gameAudio.sfxTicket();
     toast('Bonus ticket!');
   }
 
@@ -1574,11 +1586,19 @@ function render(state, root) {
   const pendType = pend ? typeById(pend.typeId) : null;
 
   const bpPct = Math.min(100, (state.bp.tier / BP_MAX_TIER) * 100);
+  let hintDismissed = false;
+  try {
+    hintDismissed = localStorage.getItem('arcade-hint-dismissed') === '1';
+  } catch {
+    hintDismissed = false;
+  }
+  const muted = gameAudio.isMuted();
   root.innerHTML = `
     <div class="app-shell gdt-shell">
       <header class="gdt-top-hud" aria-label="Studio status">
         <div class="gdt-hud-left">
           <button type="button" class="gdt-icon-btn" id="gdtMenuBtn" aria-label="Menu">☰</button>
+          <button type="button" class="gdt-icon-btn gdt-mute-btn" id="btnMute" aria-label="${muted ? 'Unmute sound' : 'Mute sound'}">${muted ? '🔇' : '🔊'}</button>
           <div class="gdt-bubble gdt-bubble-orange" title="Tickets">
             <span class="gdt-bubble-ico" aria-hidden="true">◆</span>
             <span data-stat="tickets">${state.tickets}</span>
@@ -1617,11 +1637,22 @@ function render(state, root) {
         </div>
       </header>
       <div class="gdt-main gdt-main-world">
+        <div class="world-gl-loading" id="worldGlLoading" aria-live="polite" aria-busy="true">
+          <div class="world-gl-loading-inner">
+            <div class="world-gl-spinner" aria-hidden="true"></div>
+            <span>Loading park…</span>
+          </div>
+        </div>
         <div id="world3dSlot"></div>
         <button type="button" class="gdt-info-fab" id="gdtInfoFab" aria-label="Season pass">i</button>
         <div class="world-ui-layer${isWorld ? ' world-ui-layer--world' : ''}">
           <div class="main-scroll gdt-room-scroll">
         <div class="tab-panel${isHome ? ' active' : ''}" data-panel="home" role="tabpanel" aria-hidden="${isHome ? 'false' : 'true'}">
+          ${!hintDismissed ? `
+          <div class="game-welcome-banner">
+            <p><strong>Welcome.</strong> Build income from cabinets on the <strong>World</strong> map, expand capacity here, and run the <strong>prize claw</strong> when you are ready.</p>
+            <button type="button" class="btn-dismiss-hint" id="btnDismissHint">Got it</button>
+          </div>` : ''}
           <div class="gdt-token-strip">
             <div class="stat token gdt-token-stat">
               <div class="lbl">ARCADE token (Devnet)</div>
@@ -1695,6 +1726,13 @@ function render(state, root) {
             Progress stored locally. Devnet mint <span style="color:#38bdf8">${ARCADE_DEVNET.mint.slice(0, 8)}…</span>
           </p>
         </div>
+          </div>
+        </div>
+        <div class="world-touch-controls${isWorld ? '' : ' world-touch-controls--hidden'}" id="worldTouchControls" aria-hidden="${isWorld ? 'false' : 'true'}">
+          <span class="touch-hint">Drag</span>
+          <div class="touch-joystick" aria-hidden="true">
+            <div class="touch-joystick-base"></div>
+            <div class="touch-joystick-stick"></div>
           </div>
         </div>
       </div>
@@ -1773,6 +1811,7 @@ function render(state, root) {
     state.rushEnd = now + RUSH_DURATION_MS;
     state.rushCooldownUntil = now + RUSH_DURATION_MS + RUSH_COOLDOWN_MS;
     state.hype = Math.min(100, state.hype + 12);
+    gameAudio.sfxRush();
     toast('Rush hour — double credits!');
     saveState(state);
     render(state, root);
@@ -1788,6 +1827,7 @@ function render(state, root) {
     if (state.coins < cost) return;
     state.coins -= cost;
     state.slotCount += 1;
+    gameAudio.sfxCoin();
     toast(`Room expanded — ${state.slotCount} spots`);
     saveState(state);
     render(state, root);
@@ -1809,6 +1849,7 @@ function render(state, root) {
       state.placementPending = { typeId: id };
       setActiveTab('world');
       saveState(state);
+      gameAudio.sfxUi();
       toast(`${t.name} — aim ghost on grass, then Place`);
       render(state, root);
     });
@@ -1834,6 +1875,7 @@ function render(state, root) {
       }
       state.coins -= c;
       m.level = (m.level || 1) + 1;
+      gameAudio.sfxCoin();
       toast(`Upgraded to Lv ${m.level}`);
       saveState(state);
       render(state, root);
@@ -1853,16 +1895,33 @@ function render(state, root) {
       state.coins -= c;
       m.broken = false;
       state.comfort = Math.min(100, state.comfort + 3);
+      gameAudio.sfxRepair();
       toast('Cabinet fixed');
       saveState(state);
       render(state, root);
     });
   });
 
+  root.querySelector('#btnMute')?.addEventListener('click', () => {
+    gameAudio.setMuted(!gameAudio.isMuted());
+    render(state, root);
+  });
+
+  root.querySelector('#btnDismissHint')?.addEventListener('click', () => {
+    try {
+      localStorage.setItem('arcade-hint-dismissed', '1');
+    } catch {
+      /* ignore */
+    }
+    render(state, root);
+  });
+
   if (getSolana()?.publicKey) refreshWalletArcade(state);
 
   queueMicrotask(() => {
-    void ensureWorld3d();
+    void ensureWorld3d().then(() => {
+      document.getElementById('worldGlLoading')?.classList.add('world-gl-loading--hidden');
+    });
   });
 }
 
@@ -1939,6 +1998,14 @@ function boot() {
 
   render(state, root);
   requestAnimationFrame(loop);
+
+  function resumeAudioOnGesture() {
+    void gameAudio.resumeAudioContext();
+    document.removeEventListener('pointerdown', resumeAudioOnGesture);
+    document.removeEventListener('keydown', resumeAudioOnGesture);
+  }
+  document.addEventListener('pointerdown', resumeAudioOnGesture);
+  document.addEventListener('keydown', resumeAudioOnGesture);
 
   try {
     const s = getSolana();

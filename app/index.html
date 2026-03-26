@@ -279,6 +279,140 @@
         .gdt-main-world .gdt-info-fab {
             z-index: 4;
         }
+        .world-gl-loading {
+            position: absolute;
+            inset: 0;
+            z-index: 3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(180deg, rgba(183,212,232,0.92) 0%, rgba(90,130,90,0.35) 100%);
+            transition: opacity 0.45s ease, visibility 0.45s ease;
+        }
+        .world-gl-loading--hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .world-gl-loading-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            padding: 20px 28px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.82);
+            border: 1px solid rgba(255,255,255,0.9);
+            box-shadow: 0 12px 40px rgba(15,23,42,0.15);
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #334155;
+        }
+        .world-gl-spinner {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 3px solid rgba(14,165,233,0.25);
+            border-top-color: #0ea5e9;
+            animation: spin 0.75s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .game-welcome-banner {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px 14px;
+            margin-bottom: 14px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(14,165,233,0.12) 0%, rgba(139,92,246,0.1) 100%);
+            border: 1px solid rgba(14,165,233,0.28);
+        }
+        .game-welcome-banner p {
+            flex: 1;
+            min-width: 0;
+            font-size: 0.8125rem;
+            line-height: 1.4;
+            color: #1e293b;
+            margin: 0;
+        }
+        .btn-dismiss-hint {
+            flex-shrink: 0;
+            padding: 8px 14px;
+            border-radius: 8px;
+            border: none;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            background: #0ea5e9;
+            color: #fff;
+        }
+        .btn-dismiss-hint:hover { filter: brightness(1.05); }
+        .gdt-mute-btn { font-size: 0.95rem !important; }
+        .world-touch-controls {
+            position: absolute;
+            left: 12px;
+            bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            pointer-events: auto;
+        }
+        .world-touch-controls--hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .touch-hint {
+            font-size: 0.5625rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: rgba(30,41,59,0.55);
+        }
+        .touch-joystick {
+            position: relative;
+            width: 112px;
+            height: 112px;
+        }
+        .touch-joystick-base {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.5) 0%, rgba(148,163,184,0.35) 100%);
+            border: 2px solid rgba(30,41,59,0.15);
+            box-shadow: inset 0 2px 8px rgba(255,255,255,0.4), 0 4px 16px rgba(15,23,42,0.12);
+        }
+        .touch-joystick-stick {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 48px;
+            height: 48px;
+            margin: 0;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 25%, #fff 0%, #0ea5e9 45%, #0369a1 100%);
+            box-shadow: 0 4px 12px rgba(14,165,233,0.45);
+            pointer-events: none;
+        }
+        @media (min-width: 900px) {
+            .world-touch-controls { opacity: 0.45; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .world-gl-spinner { animation: none; border-color: #0ea5e9; }
+            .toast { animation: none; }
+            .touch-joystick-stick { transition: none; }
+        }
+        .tab-btn:focus-visible,
+        .gdt-icon-btn:focus-visible,
+        button:focus-visible {
+            outline: 2px solid #0ea5e9;
+            outline-offset: 2px;
+        }
         .world-walk-mascot {
             display: flex;
             justify-content: center;
@@ -778,21 +912,30 @@
             left: 50%;
             transform: translateX(-50%);
             padding: 14px 20px;
-            background: var(--surface);
+            background: rgba(24, 24, 27, 0.94);
             border: 1px solid var(--border-strong);
-            border-radius: 10px;
+            border-radius: 12px;
             font-size: 0.8125rem;
             font-weight: 500;
             z-index: 200;
             max-width: min(92vw, 360px);
             text-align: center;
-            box-shadow: 0 12px 48px rgba(0,0,0,0.45);
-            animation: toastIn 0.25s ease;
+            box-shadow: 0 16px 50px rgba(0,0,0,0.5);
+            animation: toastIn 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+            backdrop-filter: blur(8px);
         }
-        .toast.err { border-color: rgba(239,68,68,0.5); color: #fecaca; }
+        .toast--ok { border-color: rgba(34, 197, 94, 0.35); color: #ecfdf5; }
+        .toast.err,
+        .toast--err { border-color: rgba(239,68,68,0.55); color: #fecaca; }
+        .toast--out {
+            animation: toastOut 0.22s ease forwards;
+        }
         @keyframes toastIn {
-            from { opacity: 0; transform: translateX(-50%) translateY(8px); }
-            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+            from { opacity: 0; transform: translateX(-50%) translateY(12px) scale(0.98); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+        }
+        @keyframes toastOut {
+            to { opacity: 0; transform: translateX(-50%) translateY(8px); }
         }
         .modal-bg {
             position: fixed;

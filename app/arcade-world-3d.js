@@ -43,20 +43,38 @@ export function createArcadeWorld(host, opts) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.domElement.className = 'world-three-canvas';
   host.appendChild(renderer.domElement);
 
-  // —— Ground (flat XZ park) ——
-  const groundGeo = new THREE.PlaneGeometry(WORLD_HALF * 2.2, WORLD_HALF * 2.2, 1, 1);
+  // —— Ground: subtle height + vertex tint for grass variation ——
+  const gSeg = 48;
+  const groundGeo = new THREE.PlaneGeometry(WORLD_HALF * 2.2, WORLD_HALF * 2.2, gSeg, gSeg);
+  const posAttr = groundGeo.attributes.position;
+  const colors = [];
+  const c1 = new THREE.Color(0x3d7a4e);
+  const c2 = new THREE.Color(0x4f9a5c);
+  const c3 = new THREE.Color(0x5cb86e);
+  for (let i = 0; i < posAttr.count; i++) {
+    const x = posAttr.getX(i);
+    const y = posAttr.getY(i);
+    const h = Math.sin(x * 0.11) * Math.cos(y * 0.09) * 0.28 + Math.sin(x * 0.31 + y * 0.27) * 0.08;
+    posAttr.setZ(i, h);
+    const t = 0.5 + 0.5 * Math.sin(x * 0.05) * Math.cos(y * 0.05);
+    const mix = c1.clone().lerp(c2, t).lerp(c3, Math.random() * 0.15);
+    colors.push(mix.r, mix.g, mix.b);
+  }
+  groundGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  groundGeo.computeVertexNormals();
   const ground = new THREE.Mesh(
     groundGeo,
     new THREE.MeshStandardMaterial({
-      color: 0x4a8f5c,
-      roughness: 0.92,
-      metalness: 0.05,
-      flatShading: false,
+      vertexColors: true,
+      roughness: 0.9,
+      metalness: 0.04,
     }),
   );
   ground.rotation.x = -Math.PI / 2;
@@ -64,8 +82,54 @@ export function createArcadeWorld(host, opts) {
   scene.add(ground);
 
   const grid = new THREE.GridHelper(WORLD_HALF * 2, 44, 0x3d7a4a, 0x2d5c38);
-  grid.position.y = 0.03;
+  grid.position.y = 0.04;
   scene.add(grid);
+
+  // —— Decorative path (lighter strip through park) ——
+  const path = new THREE.Mesh(
+    new THREE.PlaneGeometry(8, WORLD_HALF * 2.05, 1, 1),
+    new THREE.MeshStandardMaterial({
+      color: 0xc9b896,
+      roughness: 0.95,
+      metalness: 0,
+      transparent: true,
+      opacity: 0.55,
+    }),
+  );
+  path.rotation.x = -Math.PI / 2;
+  path.position.set(0, 0.045, 0);
+  path.receiveShadow = true;
+  scene.add(path);
+
+  // —— Simple trees ——
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9 });
+  const leafMat = new THREE.MeshStandardMaterial({ color: 0x2d6a3e, roughness: 0.85 });
+  const treePositions = [
+    [-32, -18],
+    [28, -22],
+    [-24, 24],
+    [34, 18],
+    [-38, 8],
+    [22, 32],
+    [-12, -36],
+    [8, -34],
+    [38, -8],
+    [-18, -30],
+  ];
+  for (const [tx, tz] of treePositions) {
+    if (Math.abs(tx) > WORLD_HALF - 4 || Math.abs(tz) > WORLD_HALF - 4) continue;
+    const tg = new THREE.Group();
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 2.2, 8), trunkMat);
+    trunk.position.y = 1.1;
+    trunk.castShadow = true;
+    tg.add(trunk);
+    const leaves = new THREE.Mesh(new THREE.ConeGeometry(2.2, 4.5, 10), leafMat);
+    leaves.position.y = 3.8;
+    leaves.castShadow = true;
+    tg.add(leaves);
+    tg.position.set(tx, 0, tz);
+    scene.add(tg);
+  }
 
   // —— Distant blocks (simple “city” silhouette) ——
   const blockMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.85 });
@@ -111,11 +175,31 @@ export function createArcadeWorld(host, opts) {
   head.position.y = 1.65;
   head.castShadow = true;
   player.add(head);
+  const playerShadow = new THREE.Mesh(
+    new THREE.CircleGeometry(0.62, 28),
+    new THREE.MeshBasicMaterial({
+      color: 0x0f172a,
+      transparent: true,
+      opacity: 0.38,
+      depthWrite: false,
+    }),
+  );
+  playerShadow.rotation.x = -Math.PI / 2;
+  playerShadow.position.y = 0.025;
+  playerShadow.renderOrder = -1;
+  player.add(playerShadow);
   scene.add(player);
 
   const keys = new Set();
+  /** Virtual joystick -1..1 (screen: up = +forward) */
+  let joyX = 0;
+  let joyY = 0;
   let lastPlayerSave = 0;
   let active = true;
+  let docHidden = false;
+  document.addEventListener('visibilitychange', () => {
+    docHidden = document.hidden;
+  });
 
   /** @type {Map<string, THREE.Group>} */
   const machineGroups = new Map();
@@ -272,9 +356,62 @@ export function createArcadeWorld(host, opts) {
   let ghostZ = 0;
   ndc.set(0, 0);
 
+  function spawnPlaceBurst(x, z) {
+    const n = 56;
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(n * 3);
+    const velocities = [];
+    for (let i = 0; i < n; i++) {
+      positions[i * 3] = x;
+      positions[i * 3 + 1] = 0.6;
+      positions[i * 3 + 2] = z;
+      const u = Math.random() * Math.PI * 2;
+      const sp = Math.random() * 0.55 + 0.45;
+      velocities.push(
+        new THREE.Vector3(Math.cos(u) * sp * 0.35, Math.random() * 0.5 + 0.35, Math.sin(u) * sp * 0.35),
+      );
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const mat = new THREE.PointsMaterial({
+      color: 0x4ade80,
+      size: 0.16,
+      transparent: true,
+      opacity: 1,
+      depthWrite: false,
+      sizeAttenuation: true,
+    });
+    const pts = new THREE.Points(geo, mat);
+    scene.add(pts);
+    let frame = 0;
+    function animParticles() {
+      frame += 1;
+      const pos = geo.attributes.position;
+      for (let i = 0; i < n; i++) {
+        pos.array[i * 3] += velocities[i].x;
+        pos.array[i * 3 + 1] += velocities[i].y;
+        pos.array[i * 3 + 2] += velocities[i].z;
+        velocities[i].y -= 0.028;
+      }
+      pos.needsUpdate = true;
+      mat.opacity = Math.max(0, 1 - frame * 0.028);
+      if (frame < 36) requestAnimationFrame(animParticles);
+      else {
+        scene.remove(pts);
+        geo.dispose();
+        mat.dispose();
+      }
+    }
+    requestAnimationFrame(animParticles);
+  }
+
   function tick() {
     const state = getState();
     if (!state) {
+      requestAnimationFrame(tick);
+      return;
+    }
+
+    if (docHidden) {
       requestAnimationFrame(tick);
       return;
     }
@@ -284,12 +421,14 @@ export function createArcadeWorld(host, opts) {
 
     const dt = Math.min(0.05, 1 / 60);
     if (active && isWorldTabActive()) {
-      let fwd = 0;
-      let turn = 0;
+      let fwd = joyY;
+      let turn = -joyX;
       if (keys.has('w') || keys.has('arrowup')) fwd += 1;
       if (keys.has('s') || keys.has('arrowdown')) fwd -= 1;
       if (keys.has('a') || keys.has('arrowleft')) turn += 1;
       if (keys.has('d') || keys.has('arrowright')) turn -= 1;
+      fwd = Math.max(-1, Math.min(1, fwd));
+      turn = Math.max(-1, Math.min(1, turn));
 
       player.rotation.y += turn * ROT_SPEED * dt;
       const ry = player.rotation.y;
@@ -358,6 +497,68 @@ export function createArcadeWorld(host, opts) {
   renderer.domElement.addEventListener('pointermove', onPointerMove);
   renderer.domElement.addEventListener('pointerdown', onPointerDown);
 
+  /** @type {HTMLElement | null} */
+  let joystickEl = null;
+  /** @type {HTMLElement | null} */
+  let joystickStick = null;
+  let joyPointerId = null;
+  const JOY_MAX = 44;
+
+  function attachTouchJoystick(container) {
+    if (!container || container.dataset.joystickBound === '1') return;
+    container.dataset.joystickBound = '1';
+    joystickEl = container.querySelector('.touch-joystick');
+    joystickStick = container.querySelector('.touch-joystick-stick');
+    const base = container.querySelector('.touch-joystick-base');
+    if (!base || !joystickStick) return;
+
+    function setStick(dx, dy) {
+      const r = Math.min(JOY_MAX, Math.hypot(dx, dy));
+      const ang = Math.atan2(dy, dx);
+      const mx = Math.cos(ang) * r;
+      const my = Math.sin(ang) * r;
+      joystickStick.style.transform = `translate(calc(-50% + ${mx}px), calc(-50% + ${my}px))`;
+      joyX = mx / JOY_MAX;
+      joyY = -my / JOY_MAX;
+    }
+    function resetStick() {
+      joystickStick.style.transform = 'translate(-50%, -50%)';
+      joyX = 0;
+      joyY = 0;
+    }
+
+    base.addEventListener(
+      'pointerdown',
+      (ev) => {
+        if (!isWorldTabActive()) return;
+        ev.preventDefault();
+        joyPointerId = ev.pointerId;
+        base.setPointerCapture(ev.pointerId);
+        const rect = base.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        setStick(ev.clientX - cx, ev.clientY - cy);
+      },
+      { passive: false },
+    );
+    base.addEventListener('pointermove', (ev) => {
+      if (joyPointerId !== ev.pointerId) return;
+      const rect = base.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      setStick(ev.clientX - cx, ev.clientY - cy);
+    });
+    base.addEventListener('pointerup', (ev) => {
+      if (joyPointerId !== ev.pointerId) return;
+      joyPointerId = null;
+      resetStick();
+    });
+    base.addEventListener('pointercancel', () => {
+      joyPointerId = null;
+      resetStick();
+    });
+  }
+
   const ro = new ResizeObserver(resize);
   ro.observe(host);
   resize();
@@ -373,7 +574,12 @@ export function createArcadeWorld(host, opts) {
     setActive(v) {
       active = v;
       keys.clear();
+      joyX = 0;
+      joyY = 0;
+      if (joystickStick) joystickStick.style.transform = 'translate(-50%, -50%)';
     },
+    attachTouchJoystick,
+    placeBurst: spawnPlaceBurst,
     getPlacementGhost() {
       const s = getState();
       if (!s?.placementPending) return null;
