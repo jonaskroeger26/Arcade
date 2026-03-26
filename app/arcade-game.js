@@ -1817,7 +1817,7 @@ function render(state, root) {
           <p><strong>Welcome.</strong> Walk to the hall, go through the door, and place cabinets on the wood floor. <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or drag to move.</p>
           <button type="button" class="btn-dismiss-hint" id="btnDismissHint">Got it</button>
         </div>` : ''}
-        <p class="game-control-hint" aria-hidden="true"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · pointer aims ghost · <strong>Place</strong> / <strong>Space</strong> confirm</p>
+        <p class="game-control-hint" aria-hidden="true"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · <kbd>E</kbd> at bus stop to travel · pointer aims ghost · <strong>Place</strong> / <strong>Space</strong> confirm</p>
         ${pend && pendType ? `
         <div class="placement-bar placement-bar--float">
           <span class="placement-bar-txt">Placing <strong>${escapeHtml(pendType.name)}</strong> — ${pendType.cost}¢ on confirm</span>
