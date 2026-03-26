@@ -68,13 +68,22 @@ export function createClawScene3D(host, opts) {
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x07040a);
-  scene.fog = new THREE.Fog(0x120818, 2.2, 5.8);
+  scene.fog = new THREE.Fog(0x120818, 2.8, 7.2);
 
-  const cameraMain = new THREE.PerspectiveCamera(40, cssW / cssH, 0.05, 50);
-  cameraMain.position.set(-0.02, 0.95, 2.18);
-  cameraMain.lookAt(0, 0.2, -0.12);
-
+  /** Pit / claw aim point — shared by all cameras */
   const pitLook = new THREE.Vector3(0, 0.16, -0.08);
+
+  /**
+   * Main view: isometric-style 3/4 corner (elevated, off-axis) so front glass and
+   * pit depth read in one frame — similar to classic tycoon room shots.
+   */
+  const cameraMain = new THREE.PerspectiveCamera(36, cssW / cssH, 0.05, 50);
+  {
+    const dir = new THREE.Vector3(0.92, 0.78, 1.06).normalize();
+    const dist = 2.42;
+    cameraMain.position.copy(pitLook).addScaledVector(dir, dist);
+    cameraMain.lookAt(pitLook);
+  }
   const cameraLeft = new THREE.PerspectiveCamera(34, 1, 0.05, 50);
   cameraLeft.position.set(-2.42, 0.46, -0.04);
   cameraLeft.lookAt(pitLook);
@@ -150,6 +159,10 @@ export function createClawScene3D(host, opts) {
   const fill = new THREE.DirectionalLight(0xb4c6ff, 0.35);
   fill.position.set(-1.5, 1.2, 1);
   scene.add(fill);
+  /** Soft fill from opposite the isometric camera so the pit rim stays readable */
+  const isoRim = new THREE.DirectionalLight(0xf0ead8, 0.2);
+  isoRim.position.set(-1.25, 0.55, -0.95);
+  scene.add(isoRim);
   const pitLight = new THREE.PointLight(0x67e8f9, 0.55, 3.5);
   pitLight.position.set(0, 0.85, 0.35);
   scene.add(pitLight);

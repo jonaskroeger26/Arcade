@@ -803,11 +803,11 @@ async function openClawMachine(state, rerender) {
     <div class="modal claw-modal" role="dialog" aria-modal="true" aria-labelledby="claw-heading">
       <div class="modal-inner">
         <h3 id="claw-heading">Prize claw</h3>
-        <p class="claw-sub">${CLAW_UNLIMITED_TEST ? `Test play ${played} · Tap the left or right edge of the window for a side depth view; Front returns to the main angle.` : `Play ${played} / ${CLAW_PLAYS_PER_DAY} · Edge taps show depth; then GRAB.`}</p>
+        <p class="claw-sub">${CLAW_UNLIMITED_TEST ? `Test play ${played} · 3/4 view shows depth in one shot. Optional edge taps for a straight side look; Front returns.` : `Play ${played} / ${CLAW_PLAYS_PER_DAY} · 3/4 view; edge taps optional; then GRAB.`}</p>
         <div class="claw-cabinet">
           <div class="claw-cabinet-bezel">
             <div class="claw-stage-wrap claw-stage-3d">
-              <div class="claw-three-host" role="img" aria-label="3D claw machine: tap left or right edge for depth view">
+              <div class="claw-three-host" role="img" aria-label="3D claw machine: isometric-style view; optional side peeks on edges">
                 <button type="button" class="claw-three-peek claw-three-peek-l" aria-label="Left depth view (pit from the side)">⟨</button>
                 <button type="button" class="claw-three-peek claw-three-peek-r" aria-label="Right depth view (pit from the side)">⟩</button>
                 <button type="button" class="claw-three-front" id="clawThreeViewFront" hidden aria-label="Return to front view">Front</button>
