@@ -2,6 +2,12 @@
  * Third-person arcade yard + enterable hall: walk outside, place cabinets on the indoor floor only.
  */
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import {
   HOUSE,
   getHouseWallSegments,
@@ -23,6 +29,7 @@ const MIN_MACHINE_GAP = 3.4;
 const PLACE_RADIUS = 2.2;
 const PLAYER_R = 0.42;
 const BUS_INTERACT_RADIUS = 4.2;
+const MODEL_BASE = '/assets/models/';
 
 const TAG_COLOR = {
   retro: 0x8b5cf6,
@@ -46,6 +53,18 @@ const ROAD_MASKS = [
 
 function toon(color) {
   return new THREE.MeshToonMaterial({ color });
+}
+
+const gltfLoader = new GLTFLoader();
+const gltfCache = new Map();
+/** @param {string} path */
+function loadModel(path) {
+  if (gltfCache.has(path)) return gltfCache.get(path);
+  const p = new Promise((resolve, reject) => {
+    gltfLoader.load(path, resolve, undefined, reject);
+  });
+  gltfCache.set(path, p);
+  return p;
 }
 
 /**
@@ -74,6 +93,13 @@ export function createArcadeWorld(host, opts) {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.domElement.className = 'world-three-canvas';
+  const composer = new EffectComposer(renderer);
+  const renderPass = new RenderPass(scene, camera);
+  const bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.35, 0.8, 0.9);
+  const outputPass = new OutputPass();
+  composer.addPass(renderPass);
+  composer.addPass(bloomPass);
+  composer.addPass(outputPass);
   host.style.position = 'relative';
   host.appendChild(renderer.domElement);
 
@@ -97,7 +123,7 @@ export function createArcadeWorld(host, opts) {
     }
   }
 
-  const gSeg = 48;
+  const gSeg = 140;
   const groundGeo = new THREE.PlaneGeometry(WORLD_HALF * 2.2, WORLD_HALF * 2.2, gSeg, gSeg);
   const posAttr = groundGeo.attributes.position;
   const colors = [];
@@ -114,8 +140,8 @@ export function createArcadeWorld(host, opts) {
       const adx = Math.max(0, dx);
       const adz = Math.max(0, dz);
       const dist = Math.hypot(adx, adz);
-      if (dist < 2.8) {
-        const tFlat = 1 - Math.min(1, dist / 2.8);
+      if (dist < 6.2) {
+        const tFlat = 1 - Math.min(1, dist / 6.2);
         h = h * (1 - tFlat) + 0.01 * tFlat;
       }
     }
@@ -229,12 +255,29 @@ export function createArcadeWorld(host, opts) {
   const laneMat = toon(0xffdf85);
   const sideMat = toon(0xbec8d7);
   const houseRoofMat = toon(0xbd7058);
+  /** @type {Array<{ minX: number, maxX: number, minZ: number, maxZ: number }>} */
+  const cityCollisionBoxes = [];
+  let houseModelEnabled = true;
+  let carModelEnabled = true;
+  let busModelEnabled = true;
+
+  function prepModelRoot(root) {
+    root.traverse((obj) => {
+      if (obj.isMesh) {
+        obj.castShadow = true;
+        obj.receiveShadow = true;
+      }
+    });
+  }
 
   function addRoad(cx, cz, w, d) {
     const road = new THREE.Mesh(new THREE.BoxGeometry(w, 0.04, d), roadMat);
     road.position.set(cx, 0.07, cz);
     road.receiveShadow = true;
     scene.add(road);
+    const shoulder = new THREE.Mesh(new THREE.BoxGeometry(w + 1.4, 0.01, d + 1.4), toon(0x4e5564));
+    shoulder.position.set(cx, 0.055, cz);
+    scene.add(shoulder);
   }
   function addLane(cx, cz, w, d) {
     const lane = new THREE.Mesh(new THREE.BoxGeometry(w, 0.02, d), laneMat);
@@ -248,31 +291,34 @@ export function createArcadeWorld(host, opts) {
     scene.add(s);
   }
   function addCityHouse(cx, cz, sx, sz, h, color = 0xe8edf6) {
+    const houseGroup = new THREE.Group();
+    houseGroup.position.set(cx, 0, cz);
+    scene.add(houseGroup);
     const base = new THREE.Mesh(new THREE.BoxGeometry(sx, h, sz), toon(color));
-    base.position.set(cx, h / 2, cz);
+    base.position.set(0, h / 2, 0);
     base.castShadow = true;
     base.receiveShadow = true;
-    scene.add(base);
+    houseGroup.add(base);
     const trim = new THREE.Mesh(
       new THREE.BoxGeometry(sx + 0.2, 0.2, sz + 0.2),
       toon(0xfaf7ef),
     );
-    trim.position.set(cx, h - 0.35, cz);
-    scene.add(trim);
+    trim.position.set(0, h - 0.35, 0);
+    houseGroup.add(trim);
     const roof = new THREE.Mesh(
       new THREE.ConeGeometry(Math.max(sx, sz) * 0.66, Math.max(1, h * 0.48), 4),
       houseRoofMat,
     );
-    roof.position.set(cx, h + Math.max(0.7, h * 0.22), cz);
+    roof.position.set(0, h + Math.max(0.7, h * 0.22), 0);
     roof.rotation.y = Math.PI * 0.25;
     roof.castShadow = true;
-    scene.add(roof);
+    houseGroup.add(roof);
     const door = new THREE.Mesh(new THREE.BoxGeometry(1.05, 1.9, 0.14), toon(0x7a4b37));
-    door.position.set(cx, 0.95, cz + sz / 2 + 0.04);
-    scene.add(door);
+    door.position.set(0, 0.95, sz / 2 + 0.04);
+    houseGroup.add(door);
     const step = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.14, 0.8), toon(0xc6ced9));
-    step.position.set(cx, 0.08, cz + sz / 2 + 0.45);
-    scene.add(step);
+    step.position.set(0, 0.08, sz / 2 + 0.45);
+    houseGroup.add(step);
     const rows = Math.max(1, Math.floor(h / 3.3));
     const cols = Math.max(1, Math.floor(sx / 2.2));
     for (let r = 0; r < rows; r++) {
@@ -280,13 +326,45 @@ export function createArcadeWorld(host, opts) {
         const wx = cx - sx / 2 + 0.8 + c * ((sx - 1.6) / Math.max(1, cols - 1));
         const wy = 1.45 + r * 1.65;
         const win = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.9, 0.08), toon(0xaed8ff));
-        win.position.set(wx, wy, cz + sz / 2 + 0.03);
-        scene.add(win);
+        win.position.set(wx - cx, wy, sz / 2 + 0.03);
+        houseGroup.add(win);
       }
     }
     const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.4, 0.5), toon(0xd9dbe2));
-    chimney.position.set(cx + sx * 0.2, h + 0.8, cz - sz * 0.2);
-    scene.add(chimney);
+    chimney.position.set(sx * 0.2, h + 0.8, -sz * 0.2);
+    houseGroup.add(chimney);
+
+    if (houseModelEnabled) {
+      loadModel(`${MODEL_BASE}house.glb`)
+        .then((gltf) => {
+          const model = gltf.scene.clone(true);
+          prepModelRoot(model);
+          const box = new THREE.Box3().setFromObject(model);
+          const size = new THREE.Vector3();
+          box.getSize(size);
+          const target = Math.max(sx, sz) * 1.15;
+          const s = target / Math.max(0.001, Math.max(size.x, size.z));
+          model.scale.setScalar(s);
+          model.position.y = 0;
+          model.rotation.y = Math.PI * 0.25;
+          houseGroup.add(model);
+          base.visible = false;
+          trim.visible = false;
+          roof.visible = false;
+          door.visible = false;
+          step.visible = false;
+          chimney.visible = false;
+        })
+        .catch(() => {
+          houseModelEnabled = false;
+        });
+    }
+    cityCollisionBoxes.push({
+      minX: cx - sx / 2 - 0.28,
+      maxX: cx + sx / 2 + 0.28,
+      minZ: cz - sz / 2 - 0.28,
+      maxZ: cz + sz / 2 + 0.28,
+    });
   }
 
   // Continuous city roads
@@ -418,27 +496,59 @@ export function createArcadeWorld(host, opts) {
 
   function makeBus() {
     const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(6.8, 2.2, 2.2), toon(0xf4b942));
-    body.position.y = 1.35;
+    const body = new THREE.Mesh(new THREE.BoxGeometry(7.2, 2.4, 2.35), toon(0xf2c14e));
+    body.position.y = 1.42;
     body.castShadow = true;
     g.add(body);
-    const stripe = new THREE.Mesh(new THREE.BoxGeometry(6.84, 0.35, 0.12), toon(0x2f3e5f));
-    stripe.position.set(0, 1.15, 1.12);
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(7.24, 0.42, 0.16), toon(0x2b3750));
+    stripe.position.set(0, 1.2, 1.18);
     g.add(stripe);
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.3, 2), toon(0xdff0ff));
-    cabin.position.set(0.7, 2.15, 0);
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(3.8, 1.45, 2.05), toon(0xd8ecff));
+    cabin.position.set(0.55, 2.25, 0);
     g.add(cabin);
+    const nose = new THREE.Mesh(new THREE.CylinderGeometry(1.06, 1.06, 2.2, 16, 1, false, 0, Math.PI), toon(0xf2c14e));
+    nose.rotation.z = Math.PI / 2;
+    nose.position.set(3.55, 1.35, 0);
+    g.add(nose);
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(2.35, 1.08, 0.08), toon(0xb8dcff));
+    glass.position.set(2.75, 2.08, 1.14);
+    g.add(glass);
+    const grill = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.2, 0.1), toon(0x1f2b3f));
+    grill.position.set(3.5, 0.98, 1.14);
+    g.add(grill);
     const wheelMat = toon(0x202636);
     for (const [x, z] of [
-      [-2.2, -1.05],
-      [2.1, -1.05],
-      [-2.2, 1.05],
-      [2.1, 1.05],
+      [-2.35, -1.13],
+      [2.15, -1.13],
+      [-2.35, 1.13],
+      [2.15, 1.13],
     ]) {
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.28, 14), wheelMat);
+      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.3, 14), wheelMat);
       wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(x, 0.48, z);
+      wheel.position.set(x, 0.5, z);
       g.add(wheel);
+    }
+    if (busModelEnabled) {
+      loadModel(`${MODEL_BASE}bus.glb`)
+        .then((gltf) => {
+          const model = gltf.scene.clone(true);
+          prepModelRoot(model);
+          const box = new THREE.Box3().setFromObject(model);
+          const size = new THREE.Vector3();
+          box.getSize(size);
+          const s = 6.8 / Math.max(0.001, Math.max(size.x, size.z));
+          model.scale.setScalar(s);
+          g.add(model);
+          body.visible = false;
+          stripe.visible = false;
+          cabin.visible = false;
+          nose.visible = false;
+          glass.visible = false;
+          grill.visible = false;
+        })
+        .catch(() => {
+          busModelEnabled = false;
+        });
     }
     scene.add(g);
     return g;
@@ -452,24 +562,55 @@ export function createArcadeWorld(host, opts) {
   const trafficCars = [];
   function makeCar(color, points, speed, offset = 0) {
     const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.9, 1.2), toon(color));
-    body.position.y = 0.72;
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.82, 1.34), toon(color));
+    body.position.y = 0.7;
     body.castShadow = true;
     g.add(body);
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.6, 1), toon(0xd8e6ff));
-    roof.position.y = 1.3;
+    const hood = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.35, 1.15), toon(color));
+    hood.position.set(0.98, 0.96, 0);
+    g.add(hood);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.56, 1.06), toon(0xd8e6ff));
+    roof.position.set(-0.15, 1.2, 0);
     g.add(roof);
+    const bumperF = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 1.12), toon(0x253042));
+    bumperF.position.set(1.42, 0.52, 0);
+    g.add(bumperF);
+    const bumperB = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 1.12), toon(0x253042));
+    bumperB.position.set(-1.42, 0.52, 0);
+    g.add(bumperB);
     const wheelMat = toon(0x222b3a);
     for (const [x, z] of [
-      [-0.86, -0.58],
-      [0.86, -0.58],
-      [-0.86, 0.58],
-      [0.86, 0.58],
+      [-0.98, -0.64],
+      [0.98, -0.64],
+      [-0.98, 0.64],
+      [0.98, 0.64],
     ]) {
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.2, 12), wheelMat);
+      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.22, 12), wheelMat);
       wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(x, 0.34, z);
+      wheel.position.set(x, 0.38, z);
       g.add(wheel);
+    }
+    if (carModelEnabled) {
+      loadModel(`${MODEL_BASE}car.glb`)
+        .then((gltf) => {
+          const model = gltf.scene.clone(true);
+          prepModelRoot(model);
+          const box = new THREE.Box3().setFromObject(model);
+          const size = new THREE.Vector3();
+          box.getSize(size);
+          const s = 2.6 / Math.max(0.001, Math.max(size.x, size.z));
+          model.scale.setScalar(s);
+          model.position.y = 0;
+          g.add(model);
+          body.visible = false;
+          hood.visible = false;
+          roof.visible = false;
+          bumperF.visible = false;
+          bumperB.visible = false;
+        })
+        .catch(() => {
+          carModelEnabled = false;
+        });
     }
     scene.add(g);
     const curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.18);
@@ -563,6 +704,35 @@ export function createArcadeWorld(host, opts) {
   player.add(avatar);
   player.add(playerShadow);
   scene.add(player);
+  let playerMixer = null;
+  let playerIdle = null;
+  let playerWalk = null;
+
+  loadModel(`${MODEL_BASE}player.glb`)
+    .then((gltf) => {
+      const model = cloneSkeleton(gltf.scene);
+      prepModelRoot(model);
+      model.scale.setScalar(1.05);
+      model.position.y = 0;
+      avatar.visible = false;
+      player.add(model);
+      if (Array.isArray(gltf.animations) && gltf.animations.length) {
+        playerMixer = new THREE.AnimationMixer(model);
+        const idleClip = gltf.animations.find((a) => /idle/i.test(a.name)) || gltf.animations[0];
+        const walkClip = gltf.animations.find((a) => /walk|run|jog/i.test(a.name)) || gltf.animations[0];
+        playerIdle = playerMixer.clipAction(idleClip);
+        playerWalk = playerMixer.clipAction(walkClip);
+        playerIdle.play();
+        if (playerWalk !== playerIdle) {
+          playerWalk.play();
+          playerWalk.enabled = true;
+          playerWalk.setEffectiveWeight(0);
+        }
+      }
+    })
+    .catch(() => {
+      // Keep procedural fallback avatar when no model is present.
+    });
 
   let walkPhase = 0;
   let interiorMode = false;
@@ -612,6 +782,8 @@ export function createArcadeWorld(host, opts) {
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     renderer.setSize(w, h, false);
+    composer.setSize(w, h);
+    bloomPass.setSize(w, h);
   }
 
   function syncPlayerFromState(s) {
@@ -890,9 +1062,10 @@ export function createArcadeWorld(host, opts) {
       const nx = player.position.x + Math.sin(ry) * fwd * MOVE_SPEED * dt;
       const nz = player.position.z + Math.cos(ry) * fwd * MOVE_SPEED * dt;
       const c = clampToWorld(nx, nz);
-      const resolved = resolveCircleWallSegments(c.x, c.z, PLAYER_R, wallSegs);
-      player.position.x = resolved.x;
-      player.position.z = resolved.z;
+      const resolvedHall = resolveCircleWallSegments(c.x, c.z, PLAYER_R, wallSegs);
+      const resolvedCity = resolveCircleWallSegments(resolvedHall.x, resolvedHall.z, PLAYER_R, cityCollisionBoxes);
+      player.position.x = resolvedCity.x;
+      player.position.z = resolvedCity.z;
 
       const speedAmt = Math.min(1, Math.abs(fwd) + Math.abs(turn) * 0.45);
       const moving = speedAmt > 0.05;
@@ -907,6 +1080,11 @@ export function createArcadeWorld(host, opts) {
       const sideLean = Math.max(-0.22, Math.min(0.22, turn * 0.11));
       torso.rotation.z = sideLean;
       avatar.position.y = moving ? Math.sin(walkPhase * 2) * 0.03 : 0;
+      if (playerMixer) {
+        playerMixer.update(dt);
+        if (playerIdle) playerIdle.setEffectiveWeight(1 - Math.min(1, speedAmt * 1.3));
+        if (playerWalk) playerWalk.setEffectiveWeight(Math.min(1, speedAmt * 1.3));
+      }
 
       if (!doorTransition) {
         const nextInside = nextInteriorMode(player.position.x, player.position.z, interiorMode);
@@ -967,7 +1145,7 @@ export function createArcadeWorld(host, opts) {
     }
 
     updateCamera();
-    renderer.render(scene, camera);
+    composer.render();
     requestAnimationFrame(tick);
   }
 
@@ -1092,6 +1270,7 @@ export function createArcadeWorld(host, opts) {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
       renderer.dispose();
+      composer.dispose();
       host.innerHTML = '';
     },
   };
