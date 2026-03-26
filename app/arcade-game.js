@@ -1655,6 +1655,9 @@ function render(state, root) {
         </div>
         <div class="tab-panel${isWorld ? ' active' : ''}" data-panel="world" role="tabpanel" aria-hidden="${isWorld ? 'false' : 'true'}">
           <p class="tab-context">Open park in 3D — <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to walk · move pointer to aim the green ghost · <strong>Place</strong> or <strong>Space</strong> to build.</p>
+          <div class="world-walk-mascot" aria-hidden="true">
+            <object data="${assetBase()}character-walk.svg" type="image/svg+xml" width="72" height="96" title=""></object>
+          </div>
           ${pend && pendType ? `
           <div class="placement-bar">
             <span class="placement-bar-txt">Placing <strong>${escapeHtml(pendType.name)}</strong> — ${pendType.cost}¢ on confirm</span>
