@@ -1,15 +1,22 @@
 /**
- * Open-world arcade park: third-person camera, walk the floor, place cabinets on the ground.
+ * Third-person arcade yard + enterable hall: walk outside, place cabinets on the indoor floor only.
  */
 import * as THREE from 'three';
+import {
+  HOUSE,
+  getHouseWallSegments,
+  isInsideHouseFloor,
+  resolveCircleWallSegments,
+} from './arcade-house.js';
 
 export const WORLD_HALF = 44;
-const CAM_DIST = 12;
-const CAM_HEIGHT = 6.5;
+const CAM_DIST = 13;
+const CAM_HEIGHT = 6.8;
 const MOVE_SPEED = 16;
 const ROT_SPEED = 2.4;
 const MIN_MACHINE_GAP = 3.4;
 const PLACE_RADIUS = 2.2;
+const PLAYER_R = 0.42;
 
 const TAG_COLOR = {
   retro: 0x8b5cf6,
@@ -28,18 +35,19 @@ function colorForTag(tag) {
  * @param {{
  *   getState: () => object,
  *   getTagForTypeId: (typeId: string) => string,
- *   isWorldTabActive: () => boolean,
  *   onPlayerMoved: (p: { x: number; z: number; ry: number }) => void,
  * }} opts
  */
 export function createArcadeWorld(host, opts) {
-  const { getState, getTagForTypeId, isWorldTabActive, onPlayerMoved } = opts;
+  const { getState, getTagForTypeId, onPlayerMoved } = opts;
+
+  const wallSegs = getHouseWallSegments();
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x87b8e8);
-  scene.fog = new THREE.Fog(0xb8d4f0, 28, 110);
+  scene.fog = new THREE.Fog(0xb8d4f0, 32, 118);
 
-  const camera = new THREE.PerspectiveCamera(52, 1, 0.2, 220);
+  const camera = new THREE.PerspectiveCamera(50, 1, 0.2, 220);
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -50,7 +58,6 @@ export function createArcadeWorld(host, opts) {
   renderer.domElement.className = 'world-three-canvas';
   host.appendChild(renderer.domElement);
 
-  // —— Ground: subtle height + vertex tint for grass variation ——
   const gSeg = 48;
   const groundGeo = new THREE.PlaneGeometry(WORLD_HALF * 2.2, WORLD_HALF * 2.2, gSeg, gSeg);
   const posAttr = groundGeo.attributes.position;
@@ -85,7 +92,6 @@ export function createArcadeWorld(host, opts) {
   grid.position.y = 0.04;
   scene.add(grid);
 
-  // —— Decorative path (lighter strip through park) ——
   const path = new THREE.Mesh(
     new THREE.PlaneGeometry(8, WORLD_HALF * 2.05, 1, 1),
     new THREE.MeshStandardMaterial({
@@ -93,7 +99,7 @@ export function createArcadeWorld(host, opts) {
       roughness: 0.95,
       metalness: 0,
       transparent: true,
-      opacity: 0.55,
+      opacity: 0.45,
     }),
   );
   path.rotation.x = -Math.PI / 2;
@@ -101,7 +107,10 @@ export function createArcadeWorld(host, opts) {
   path.receiveShadow = true;
   scene.add(path);
 
-  // —— Simple trees ——
+  function overlapsHouse(tx, tz) {
+    return Math.abs(tx - HOUSE.cx) < HOUSE.hw + 3 && Math.abs(tz - HOUSE.cz) < HOUSE.hd + 3;
+  }
+
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9 });
   const leafMat = new THREE.MeshStandardMaterial({ color: 0x2d6a3e, roughness: 0.85 });
   const treePositions = [
@@ -118,6 +127,7 @@ export function createArcadeWorld(host, opts) {
   ];
   for (const [tx, tz] of treePositions) {
     if (Math.abs(tx) > WORLD_HALF - 4 || Math.abs(tz) > WORLD_HALF - 4) continue;
+    if (overlapsHouse(tx, tz)) continue;
     const tg = new THREE.Group();
     const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 2.2, 8), trunkMat);
     trunk.position.y = 1.1;
@@ -131,7 +141,6 @@ export function createArcadeWorld(host, opts) {
     scene.add(tg);
   }
 
-  // —— Distant blocks (simple “city” silhouette) ——
   const blockMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.85 });
   for (let i = 0; i < 24; i++) {
     const h = 4 + Math.random() * 14;
@@ -144,8 +153,39 @@ export function createArcadeWorld(host, opts) {
     scene.add(mesh);
   }
 
-  scene.add(new THREE.AmbientLight(0xd4e8ff, 0.52));
-  const sun = new THREE.DirectionalLight(0xfff5e6, 1.05);
+  // —— Arcade hall (walk-in building) ——
+  const hallFloor = new THREE.Mesh(
+    new THREE.BoxGeometry(HOUSE.hw * 2 - 0.15, 0.1, HOUSE.hd * 2 - 0.15),
+    new THREE.MeshStandardMaterial({ color: 0x9d6b4a, roughness: 0.72, metalness: 0.05 }),
+  );
+  hallFloor.position.set(HOUSE.cx, 0.05, HOUSE.cz);
+  hallFloor.receiveShadow = true;
+  scene.add(hallFloor);
+
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0xeae2d6, roughness: 0.62 });
+  const wallH = 3.25;
+  for (const seg of wallSegs) {
+    const sx = seg.maxX - seg.minX;
+    const sz = seg.maxZ - seg.minZ;
+    const wx = (seg.minX + seg.maxX) / 2;
+    const wz = (seg.minZ + seg.maxZ) / 2;
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(Math.max(sx, 0.15), wallH, Math.max(sz, 0.15)), wallMat);
+    mesh.position.set(wx, wallH / 2, wz);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+  }
+
+  const roof = new THREE.Mesh(
+    new THREE.BoxGeometry(HOUSE.hw * 2 + 0.55, 0.28, HOUSE.hd * 2 + 0.55),
+    new THREE.MeshStandardMaterial({ color: 0x6b5344, roughness: 0.78 }),
+  );
+  roof.position.set(HOUSE.cx, wallH + 0.12, HOUSE.cz);
+  roof.castShadow = true;
+  scene.add(roof);
+
+  scene.add(new THREE.AmbientLight(0xd4e8ff, 0.48));
+  const sun = new THREE.DirectionalLight(0xfff5e6, 1.02);
   sun.position.set(38, 56, 28);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -156,42 +196,79 @@ export function createArcadeWorld(host, opts) {
   sun.shadow.camera.top = 70;
   sun.shadow.camera.bottom = -70;
   scene.add(sun);
-  const hemi = new THREE.HemisphereLight(0x9ec8f0, 0x3d6b4a, 0.38);
+  const hemi = new THREE.HemisphereLight(0x9ec8f0, 0x3d6b4a, 0.36);
   scene.add(hemi);
+  const hallLight = new THREE.PointLight(0xffeedd, 1.15, 24, 1.85);
+  hallLight.position.set(HOUSE.cx, 2.5, HOUSE.cz);
+  scene.add(hallLight);
 
-  // —— Player ——
+  // —— Player avatar (simple humanoid + walk cycle) ——
   const player = new THREE.Group();
-  const body = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.45, 0.85, 6, 12),
-    new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.45, metalness: 0.1 }),
-  );
-  body.position.y = 0.85;
-  body.castShadow = true;
-  player.add(body);
-  const head = new THREE.Mesh(
-    new THREE.SphereGeometry(0.38, 16, 16),
-    new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.5 }),
-  );
-  head.position.y = 1.65;
+  const avatar = new THREE.Group();
+  const matTorso = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.45, metalness: 0.08 });
+  const matSkin = new THREE.MeshStandardMaterial({ color: 0xf4d0a4, roughness: 0.52 });
+  const matPants = new THREE.MeshStandardMaterial({ color: 0x1e3a5f, roughness: 0.55 });
+  const matShoe = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.58 });
+
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.54, 0.28), matTorso);
+  torso.position.y = 1.04;
+  torso.castShadow = true;
+  avatar.add(torso);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.27, 14, 14), matSkin);
+  head.position.y = 1.44;
   head.castShadow = true;
-  player.add(head);
+  avatar.add(head);
+
+  const hipY = 0.74;
+  const legGeo = new THREE.CylinderGeometry(0.1, 0.09, 0.44, 8);
+  function makeLeg(side) {
+    const g = new THREE.Group();
+    g.position.set(side * 0.15, hipY, 0);
+    const leg = new THREE.Mesh(legGeo, matPants);
+    leg.position.y = -0.22;
+    leg.castShadow = true;
+    g.add(leg);
+    const shoe = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.13, 0.09, 8), matShoe);
+    shoe.position.y = -0.48;
+    shoe.castShadow = true;
+    g.add(shoe);
+    return g;
+  }
+  const legL = makeLeg(-1);
+  const legR = makeLeg(1);
+  avatar.add(legL, legR);
+
+  const armGeo = new THREE.CylinderGeometry(0.075, 0.065, 0.36, 8);
+  const armL = new THREE.Mesh(armGeo, matTorso);
+  armL.position.set(-0.33, 1.1, 0);
+  armL.rotation.z = 0.4;
+  armL.castShadow = true;
+  const armR = new THREE.Mesh(armGeo, matTorso);
+  armR.position.set(0.33, 1.1, 0);
+  armR.rotation.z = -0.4;
+  armR.castShadow = true;
+  avatar.add(armL, armR);
+
   const playerShadow = new THREE.Mesh(
-    new THREE.CircleGeometry(0.62, 28),
+    new THREE.CircleGeometry(0.55, 28),
     new THREE.MeshBasicMaterial({
       color: 0x0f172a,
       transparent: true,
-      opacity: 0.38,
+      opacity: 0.36,
       depthWrite: false,
     }),
   );
   playerShadow.rotation.x = -Math.PI / 2;
   playerShadow.position.y = 0.025;
   playerShadow.renderOrder = -1;
+  player.add(avatar);
   player.add(playerShadow);
   scene.add(player);
 
+  let walkPhase = 0;
+
   const keys = new Set();
-  /** Virtual joystick -1..1 (screen: up = +forward) */
   let joyX = 0;
   let joyY = 0;
   let lastPlayerSave = 0;
@@ -212,9 +289,9 @@ export function createArcadeWorld(host, opts) {
   const ndc = new THREE.Vector2();
 
   function layoutSize() {
-    const w = Math.max(280, host.clientWidth || 300);
+    const w = Math.max(320, host.clientWidth || 400);
     const ph = host.parentElement?.clientHeight;
-    const h = Math.max(220, host.clientHeight || ph || Math.min(520, window.innerHeight * 0.55));
+    const h = Math.max(260, host.clientHeight || ph || window.innerHeight * 0.65);
     return { w, h };
   }
 
@@ -243,8 +320,7 @@ export function createArcadeWorld(host, opts) {
   }
 
   function canPlaceAt(wx, wz, state) {
-    if (Math.abs(wx) > WORLD_HALF - PLACE_RADIUS || Math.abs(wz) > WORLD_HALF - PLACE_RADIUS)
-      return false;
+    if (!isInsideHouseFloor(wx, wz)) return false;
     for (const m of state.machines) {
       const mx = m.wx ?? 0;
       const mz = m.wz ?? 0;
@@ -260,7 +336,7 @@ export function createArcadeWorld(host, opts) {
     const cx = px - Math.sin(ry) * CAM_DIST;
     const cz = pz - Math.cos(ry) * CAM_DIST;
     camera.position.set(cx, CAM_HEIGHT, cz);
-    camera.lookAt(px, 1.3, pz);
+    camera.lookAt(px, 1.35, pz);
   }
 
   function ensureGhost(state) {
@@ -304,7 +380,6 @@ export function createArcadeWorld(host, opts) {
     }
   }
 
-  /** Sync machine meshes from game state */
   function syncMachines(state) {
     const seen = new Set();
     for (const m of state.machines) {
@@ -420,7 +495,7 @@ export function createArcadeWorld(host, opts) {
     ensureGhost(state);
 
     const dt = Math.min(0.05, 1 / 60);
-    if (active && isWorldTabActive()) {
+    if (active) {
       let fwd = joyY;
       let turn = -joyX;
       if (keys.has('w') || keys.has('arrowup')) fwd += 1;
@@ -435,8 +510,18 @@ export function createArcadeWorld(host, opts) {
       const nx = player.position.x + Math.sin(ry) * fwd * MOVE_SPEED * dt;
       const nz = player.position.z + Math.cos(ry) * fwd * MOVE_SPEED * dt;
       const c = clampToWorld(nx, nz);
-      player.position.x = c.x;
-      player.position.z = c.z;
+      const resolved = resolveCircleWallSegments(c.x, c.z, PLAYER_R, wallSegs);
+      player.position.x = resolved.x;
+      player.position.z = resolved.z;
+
+      const moving = Math.abs(fwd) > 0.08 || Math.abs(turn) > 0.12;
+      walkPhase += dt * (moving ? 10 : 0);
+      const swing = Math.sin(walkPhase) * 0.55;
+      legL.rotation.x = swing;
+      legR.rotation.x = -swing;
+      armL.rotation.x = -swing * 0.35;
+      armR.rotation.x = swing * 0.35;
+      avatar.position.y = moving ? Math.abs(Math.sin(walkPhase * 2)) * 0.05 : 0;
 
       const now = performance.now();
       if (now - lastPlayerSave > 600) {
@@ -466,7 +551,6 @@ export function createArcadeWorld(host, opts) {
   }
 
   function onKeyDown(e) {
-    if (!isWorldTabActive()) return;
     const k = e.key.toLowerCase();
     if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k))
       keys.add(k);
@@ -497,9 +581,7 @@ export function createArcadeWorld(host, opts) {
   renderer.domElement.addEventListener('pointermove', onPointerMove);
   renderer.domElement.addEventListener('pointerdown', onPointerDown);
 
-  /** @type {HTMLElement | null} */
   let joystickEl = null;
-  /** @type {HTMLElement | null} */
   let joystickStick = null;
   let joyPointerId = null;
   const JOY_MAX = 44;
@@ -530,7 +612,6 @@ export function createArcadeWorld(host, opts) {
     base.addEventListener(
       'pointerdown',
       (ev) => {
-        if (!isWorldTabActive()) return;
         ev.preventDefault();
         joyPointerId = ev.pointerId;
         base.setPointerCapture(ev.pointerId);

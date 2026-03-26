@@ -2,24 +2,9 @@
  * Arcade Empire — tycoon (room, cabinet upgrades, daily claw).
  */
 import * as gameAudio from './game-audio.js';
+import { clampMachineToHouseFloor, defaultMachinePositionForSlot } from './arcade-house.js';
 
 const SAVE_KEY = 'arcade-empire-v2';
-const UI_TAB_KEY = 'arcade-ui-tab';
-
-function getActiveTab() {
-  try {
-    const t = sessionStorage.getItem(UI_TAB_KEY);
-    if (t === 'home' || t === 'world' || t === 'shop') return t;
-    if (t === 'floor') return 'world';
-  } catch (_) {}
-  return 'world';
-}
-
-function setActiveTab(tab) {
-  try {
-    sessionStorage.setItem(UI_TAB_KEY, tab);
-  } catch (_) {}
-}
 
 /** Latest game state for the 3D world module (survives async init). */
 const gameStateBag = { current: null };
@@ -50,7 +35,7 @@ function commitPlacement(state, root) {
     return;
   }
   if (state.machines.length >= state.slotCount) {
-    toast('Capacity full — expand in Home', true);
+    toast('Capacity full — expand in Hall', true);
     return;
   }
   if (!world3dApi) {
@@ -59,7 +44,7 @@ function commitPlacement(state, root) {
   }
   const g = world3dApi.getPlacementGhost?.();
   if (!g?.valid) {
-    toast('Invalid spot — aim on open grass, away from other cabinets', true);
+    toast('Invalid spot — aim on the hall floor inside the building, away from other cabinets', true);
     return;
   }
   const slot = nextFreeSlot(state);
@@ -89,7 +74,6 @@ async function ensureWorld3d() {
     world3dApi = createArcadeWorld(host, {
       getState: () => gameStateBag.current,
       getTagForTypeId: (id) => typeById(id)?.tag ?? 'casual',
-      isWorldTabActive: () => getActiveTab() === 'world',
       onPlayerMoved: (p) => {
         const s = gameStateBag.current;
         if (!s) return;
@@ -99,7 +83,7 @@ async function ensureWorld3d() {
     });
   }
   world3dApi.sync(gameStateBag.current);
-  world3dApi.setActive(getActiveTab() === 'world');
+  world3dApi.setActive(true);
   const joyHost = document.getElementById('worldTouchControls');
   if (joyHost && world3dApi.attachTouchJoystick) {
     world3dApi.attachTouchJoystick(joyHost);
@@ -296,14 +280,7 @@ function saveState(state) {
 }
 
 function defaultWorldPosForSlot(slot, slotCount) {
-  const n = Math.max(4, slotCount);
-  const cols = Math.ceil(Math.sqrt(n));
-  const row = Math.floor(slot / cols);
-  const col = slot % cols;
-  const spacing = 6.5;
-  const ox = (-(cols - 1) * spacing) / 2;
-  const oz = -6;
-  return { wx: ox + col * spacing, wz: oz + row * spacing };
+  return defaultMachinePositionForSlot(slot, slotCount);
 }
 
 function defaultState() {
@@ -314,8 +291,8 @@ function defaultState() {
     comfort: 72,
     slotCount: 4,
     machines: [],
-    /** Third-person avatar position on the open map */
-    player: { x: 0, z: 14, ry: 0 },
+    /** Third-person avatar — yard in front of the hall (faces toward −Z / the door) */
+    player: { x: 0, z: 14, ry: Math.PI },
     /** When set, shop purchase waits for a spot on the ground */
     placementPending: null,
     lastTick: Date.now(),
@@ -355,7 +332,7 @@ function mergeState(raw) {
   if (typeof merged.claw.plays !== 'number')
     merged.claw.plays = merged.claw.uses ?? 0;
   if (!merged.player || typeof merged.player !== 'object')
-    merged.player = { x: 0, z: 14, ry: 0 };
+    merged.player = { x: 0, z: 14, ry: Math.PI };
   if (merged.placementPending != null && typeof merged.placementPending !== 'object')
     merged.placementPending = null;
   for (const m of merged.machines) {
@@ -367,6 +344,7 @@ function mergeState(raw) {
       m.wx = p.wx;
       m.wz = p.wz;
     }
+    clampMachineToHouseFloor(m);
   }
   return merged;
 }
@@ -448,10 +426,15 @@ function getWeb3() {
 async function refreshWalletArcade(state) {
   const w3 = getWeb3();
   const s = getSolana();
-  const el = document.getElementById('walletArcadeBal');
-  if (!el) return;
+  const els = ['walletArcadeBal', 'walletArcadeBalModal']
+    .map((id) => document.getElementById(id))
+    .filter(Boolean);
+  if (!els.length) return;
+  const setAll = (t) => {
+    for (const el of els) el.textContent = t;
+  };
   if (!w3 || !s?.publicKey) {
-    el.textContent = '—';
+    setAll('—');
     return;
   }
   try {
@@ -472,14 +455,15 @@ async function refreshWalletArcade(state) {
     const whole = total / div;
     const frac = total % div;
     const fracStr = frac.toString().padStart(ARCADE_DEVNET.decimals, '0').replace(/0+$/, '') || '0';
-    el.textContent =
+    const text =
       total === 0n
         ? '0'
         : frac === 0n
           ? whole.toString()
           : `${whole}.${fracStr.slice(0, 4)}`;
+    setAll(text);
   } catch {
-    el.textContent = '?';
+    setAll('?');
   }
 }
 
@@ -1508,28 +1492,71 @@ function openBattlePassModal(state, rerender) {
   document.body.appendChild(bg);
 }
 
-function render(state, root) {
-  gameStateBag.current = state;
-  appRoot = root;
-  ensureClawDay(state);
+function openShopModal(state, root) {
+  const pend = state.placementPending;
+  const shop = MACHINE_TYPES.map((t) => {
+    const full = state.machines.length >= state.slotCount;
+    const can = !full && state.coins >= t.cost && !pend;
+    return `
+      <div class="shop-item">
+        <div class="ico">${machineImageHtml(t, 'shop')}</div>
+        <div class="info">
+          <div class="n">${t.name}</div>
+          <div class="d">${t.income.toFixed(1)}¢/s base · ${t.tag} · place inside the hall</div>
+        </div>
+        <button type="button" data-buy="${t.id}" ${can ? '' : 'disabled'}>${pend ? 'Busy' : `${t.cost}¢`}</button>
+      </div>
+    `;
+  }).join('');
+
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.innerHTML = `
+    <div class="modal" style="max-width:420px">
+      <button class="close" type="button">Close</button>
+      <h3>Equipment catalog</h3>
+      <p style="font-size:0.8125rem;color:var(--text-secondary);line-height:1.5;">Buy a cabinet, then aim the green ghost on the wooden floor inside your arcade hall.</p>
+      <div class="shop">${shop}</div>
+      <p class="footer-note" style="margin-top:12px;font-size:0.75rem;color:var(--text-secondary)">
+        Devnet mint <span style="color:#38bdf8">${ARCADE_DEVNET.mint.slice(0, 8)}…</span>
+      </p>
+    </div>
+  `;
+  bg.querySelector('.close').onclick = () => bg.remove();
+  bg.addEventListener('click', (e) => {
+    if (e.target === bg) bg.remove();
+  });
+  bg.querySelectorAll('[data-buy]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-buy');
+      const t = typeById(id);
+      if (!t || state.coins < t.cost) return;
+      if (state.placementPending) {
+        toast('Finish or cancel the current placement first', true);
+        return;
+      }
+      if (state.machines.length >= state.slotCount) {
+        toast('Hall full — expand capacity in Hall', true);
+        return;
+      }
+      state.placementPending = { typeId: id };
+      saveState(state);
+      gameAudio.sfxUi();
+      toast(`${t.name} — aim ghost on the hall floor, then Place`);
+      bg.remove();
+      render(state, root);
+    });
+  });
+  document.body.appendChild(bg);
+}
+
+function openHallModal(state, root) {
   const rush = Date.now() < state.rushEnd;
   const rushCd = Date.now() < state.rushCooldownUntil;
   const setMult = setMultiplier(state.machines);
-
-  const preservedWorldHost = (() => {
-    const el = document.getElementById('world3dHost');
-    return el?.parentNode ? el.parentNode.removeChild(el) : null;
-  })();
-
-  const clawLeft = CLAW_UNLIMITED_TEST
-    ? Number.POSITIVE_INFINITY
-    : Math.max(0, CLAW_PLAYS_PER_DAY - state.claw.plays);
-  const clawExhausted = !CLAW_UNLIMITED_TEST && clawLeft === 0;
-  const clawLabel = CLAW_UNLIMITED_TEST
-    ? 'Prize claw · Unlimited (test)'
-    : clawLeft === 0
-      ? 'Prize claw · Available tomorrow (UTC)'
-      : `Prize claw · ${clawLeft} of ${CLAW_PLAYS_PER_DAY} plays remaining`;
+  const expandCost = SLOT_EXPAND_COST(state.slotCount);
+  const canExpand = state.slotCount < SLOT_MAX && state.coins >= expandCost;
+  const openCapacity = Math.max(0, state.slotCount - state.machines.length);
 
   const machineCards = state.machines
     .map((m) => {
@@ -1553,236 +1580,49 @@ function render(state, root) {
     })
     .join('');
 
-  const openCapacity = Math.max(0, state.slotCount - state.machines.length);
-  const pend = state.placementPending;
-  const shop = MACHINE_TYPES.map((t) => {
-    const full = state.machines.length >= state.slotCount;
-    const can =
-      !full && state.coins >= t.cost && !pend;
-    return `
-      <div class="shop-item">
-        <div class="ico">${machineImageHtml(t, 'shop')}</div>
-        <div class="info">
-          <div class="n">${t.name}</div>
-          <div class="d">${t.income.toFixed(1)}¢/s base · ${t.tag} · place on the 3D map</div>
-        </div>
-        <button type="button" data-buy="${t.id}" ${can ? '' : 'disabled'}>${pend ? 'Busy' : `${t.cost}¢`}</button>
-      </div>
-    `;
-  }).join('');
-
-  const expandCost = SLOT_EXPAND_COST(state.slotCount);
-  const canExpand = state.slotCount < SLOT_MAX && state.coins >= expandCost;
-
-  const clawHandler = () => {
-    void openClawMachine(state, () => render(state, root)).catch(() => {
-      toast('Could not open claw machine.', true);
-    });
-  };
-  const activeTab = getActiveTab();
-  const isHome = activeTab === 'home';
-  const isWorld = activeTab === 'world';
-  const isShop = activeTab === 'shop';
-  const pendType = pend ? typeById(pend.typeId) : null;
-
-  const bpPct = Math.min(100, (state.bp.tier / BP_MAX_TIER) * 100);
-  let hintDismissed = false;
-  try {
-    hintDismissed = localStorage.getItem('arcade-hint-dismissed') === '1';
-  } catch {
-    hintDismissed = false;
-  }
-  const muted = gameAudio.isMuted();
-  root.innerHTML = `
-    <div class="app-shell gdt-shell">
-      <header class="gdt-top-hud" aria-label="Studio status">
-        <div class="gdt-hud-left">
-          <button type="button" class="gdt-icon-btn" id="gdtMenuBtn" aria-label="Menu">☰</button>
-          <button type="button" class="gdt-icon-btn gdt-mute-btn" id="btnMute" aria-label="${muted ? 'Unmute sound' : 'Mute sound'}">${muted ? '🔇' : '🔊'}</button>
-          <div class="gdt-bubble gdt-bubble-orange" title="Tickets">
-            <span class="gdt-bubble-ico" aria-hidden="true">◆</span>
-            <span data-stat="tickets">${state.tickets}</span>
-          </div>
-          <div class="gdt-bubble gdt-bubble-yellow" title="Ambience">
-            <span class="gdt-bubble-ico" aria-hidden="true">◎</span>
-            <span data-stat="comfort">${Math.round(state.comfort)}</span>
-          </div>
-        </div>
-        <div class="gdt-hud-center">
-          <div class="gdt-project-card">
-            <div class="gdt-project-title">Arcade Empire</div>
-            <div class="gdt-project-genre">Simulation / Venue ops</div>
-            <div class="gdt-progress-block">
-              <div class="gdt-progress-label">Season pass · Tier <span data-stat="bp-tier">${state.bp.tier}</span></div>
-              <div class="gdt-progress-bar"><i data-bp-bar style="width:${bpPct}%"></i></div>
-            </div>
-            <div class="gdt-hype-pill">Hype <strong data-stat="hype">${Math.round(state.hype)}%</strong></div>
-          </div>
-        </div>
-        <div class="gdt-hud-right">
-          <div class="gdt-bubble gdt-bubble-blue" title="Credits">
-            <span class="gdt-bubble-ico" aria-hidden="true">⬡</span>
-            <span data-stat="coins-short">${formatShortNumber(state.coins)}</span>
-          </div>
-          <div class="gdt-bubble gdt-bubble-teal" title="Machines on floor">
-            <span class="gdt-bubble-ico" aria-hidden="true">▣</span>
-            <span data-stat="machines-n">${state.machines.length}</span>
-          </div>
-          <div class="gdt-hud-stack">
-            <div class="gdt-hud-line"><span class="gdt-hud-ico" aria-hidden="true">🕐</span> <span data-stat="gdt-time">${formatGdtWeekLine()}</span></div>
-            <div class="gdt-hud-line"><span class="gdt-hud-ico" aria-hidden="true">♥</span> <span data-stat="fans">${formatShortNumber(fanCountFromState(state))}</span> Fans</div>
-            <div class="gdt-hud-line gdt-money"><span class="gdt-hud-ico" aria-hidden="true">$</span> <span data-stat="coins-short">${formatShortNumber(state.coins)}</span></div>
-          </div>
-          <a class="gdt-source-pill" href="https://github.com/jonaskroeger26/Arcade" target="_blank" rel="noopener noreferrer" title="Source">src</a>
-        </div>
-      </header>
-      <div class="gdt-main gdt-main-world">
-        <div class="world-gl-loading" id="worldGlLoading" aria-live="polite" aria-busy="true">
-          <div class="world-gl-loading-inner">
-            <div class="world-gl-spinner" aria-hidden="true"></div>
-            <span>Loading park…</span>
-          </div>
-        </div>
-        <div id="world3dSlot"></div>
-        <button type="button" class="gdt-info-fab" id="gdtInfoFab" aria-label="Season pass">i</button>
-        <div class="world-ui-layer${isWorld ? ' world-ui-layer--world' : ''}">
-          <div class="main-scroll gdt-room-scroll">
-        <div class="tab-panel${isHome ? ' active' : ''}" data-panel="home" role="tabpanel" aria-hidden="${isHome ? 'false' : 'true'}">
-          ${!hintDismissed ? `
-          <div class="game-welcome-banner">
-            <p><strong>Welcome.</strong> Build income from cabinets on the <strong>World</strong> map, expand capacity here, and run the <strong>prize claw</strong> when you are ready.</p>
-            <button type="button" class="btn-dismiss-hint" id="btnDismissHint">Got it</button>
-          </div>` : ''}
-          <div class="gdt-token-strip">
-            <div class="stat token gdt-token-stat">
-              <div class="lbl">ARCADE token (Devnet)</div>
-              <div class="val" id="walletArcadeBal">—</div>
-            </div>
-          </div>
-          <p class="toolbar-label">Actions</p>
-          <div class="row-btns">
-            <button type="button" class="btn-secondary" id="btnWallet">${getSolana()?.publicKey ? 'Refresh wallet' : 'Connect wallet'}</button>
-            <button type="button" class="btn-amber" id="btnRush" ${rush || rushCd || state.tickets < 1 ? 'disabled' : ''}>
-              ${rush ? 'Rush active' : rushCd ? 'Rush cooling…' : 'Rush hour (1 ticket)'}
-            </button>
-            <button type="button" class="btn-muted" id="btnBp">Season pass</button>
-            <button type="button" class="btn-primary" id="btnExpand" ${canExpand ? '' : 'disabled'}>
-              Expand floor · ${expandCost}¢ (${state.slotCount}/${SLOT_MAX})
-            </button>
-            <button type="button" class="btn-claw" id="btnClaw" ${clawExhausted ? 'disabled' : ''}>${clawLabel}</button>
-          </div>
-          <section class="home-machines-section">
-            <h2>Your machines</h2>
-            <div class="arcade-room">
-              <div class="room-wall">
-                <div class="strip">Active floor</div>
-              </div>
-              <div class="room-floor room-floor--home">
-                <div class="floor-grid">${machineCards || `<div class="slot">No cabinets yet — <strong>Shop</strong> to buy, then place on the <strong>World</strong> map.</div>`}</div>
-              </div>
-            </div>
-          </section>
-          <p class="tab-context" style="margin-top:14px;margin-bottom:0">${openCapacity} placement slots left · Claw: <strong>World</strong> tab · Gear: <strong>Shop</strong>.</p>
-        </div>
-        <div class="tab-panel${isWorld ? ' active' : ''}" data-panel="world" role="tabpanel" aria-hidden="${isWorld ? 'false' : 'true'}">
-          <p class="tab-context">Open park in 3D — <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to walk · move pointer to aim the green ghost · <strong>Place</strong> or <strong>Space</strong> to build.</p>
-          <div class="world-walk-mascot" aria-hidden="true">
-            <object data="${assetBase()}character-walk.svg" type="image/svg+xml" width="72" height="96" title=""></object>
-          </div>
-          ${pend && pendType ? `
-          <div class="placement-bar">
-            <span class="placement-bar-txt">Placing <strong>${escapeHtml(pendType.name)}</strong> — ${pendType.cost}¢ on confirm</span>
-            <button type="button" class="btn-primary" id="btnPlaceCommit">Place here</button>
-            <button type="button" class="btn-secondary" id="btnPlaceCancel">Cancel</button>
-          </div>` : ''}
-          <section>
-            <h2>Prize claw</h2>
-            <div class="claw-booth">
-              <div class="claw-booth-inner">
-                <svg class="claw-mini" viewBox="0 0 64 64" aria-hidden="true">
-                  <rect x="8" y="10" width="48" height="4" rx="1" fill="#52525b"/>
-                  <rect x="30" y="14" width="4" height="14" fill="#71717a"/>
-                  <path d="M26 30 L32 38 L38 30" fill="#52525b"/>
-                  <rect x="10" y="42" width="44" height="14" rx="2" fill="rgba(14,165,233,0.12)" stroke="#3f3f46"/>
-                  <circle cx="24" cy="50" r="5" fill="#ec4899" opacity="0.85"/>
-                  <circle cx="40" cy="50" r="5" fill="#f59e0b" opacity="0.85"/>
-                </svg>
-                <div style="flex:1;min-width:0">
-                  <div class="claw-label">Lobby prize claw</div>
-                  <p class="claw-hint">${CLAW_UNLIMITED_TEST ? 'Unlimited plays (test). ' : `${CLAW_PLAYS_PER_DAY} free plays per day (UTC). `}Full-screen 3D cabinet.</p>
-                  <button type="button" class="btn-secondary" id="clawBoothBtn" style="margin-top:10px;width:100%" ${clawExhausted ? 'disabled' : ''}>Run prize claw</button>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-        <div class="tab-panel${isShop ? ' active' : ''}" data-panel="shop" role="tabpanel" aria-hidden="${isShop ? 'false' : 'true'}">
-          <p class="tab-context">Buy a cabinet, then switch to <strong>World</strong> to place it on the map (expand capacity from <strong>Home</strong>).</p>
-          <section>
-            <h2>Equipment catalog</h2>
-            <div class="shop">${shop}</div>
-          </section>
-          <p class="footer-note">
-            Progress stored locally. Devnet mint <span style="color:#38bdf8">${ARCADE_DEVNET.mint.slice(0, 8)}…</span>
-          </p>
-        </div>
-          </div>
-        </div>
-        <div class="world-touch-controls${isWorld ? '' : ' world-touch-controls--hidden'}" id="worldTouchControls" aria-hidden="${isWorld ? 'false' : 'true'}">
-          <span class="touch-hint">Drag</span>
-          <div class="touch-joystick" aria-hidden="true">
-            <div class="touch-joystick-base"></div>
-            <div class="touch-joystick-stick"></div>
-          </div>
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.innerHTML = `
+    <div class="modal" style="max-width:440px;max-height:88vh;overflow:auto">
+      <button class="close" type="button">Close</button>
+      <h3>Your arcade hall</h3>
+      <p class="tab-context" style="margin-bottom:10px">${openCapacity} placement slots · Walk into the 3D building to place cabinets on the wood floor.</p>
+      <div class="gdt-token-strip">
+        <div class="stat token gdt-token-stat">
+          <div class="lbl">ARCADE token (Devnet)</div>
+          <div class="val" id="walletArcadeBalModal">—</div>
         </div>
       </div>
-      <nav class="tab-bar gdt-tab-bar" role="tablist" aria-label="Sections">
-        <button type="button" class="tab-btn${isHome ? ' active' : ''}" role="tab" aria-selected="${isHome ? 'true' : 'false'}" data-tab="home">
-          <span class="tab-ico" aria-hidden="true">◇</span>
-          Home
+      <p class="toolbar-label">Actions</p>
+      <div class="row-btns">
+        <button type="button" class="btn-secondary" id="btnWalletModal">${getSolana()?.publicKey ? 'Refresh wallet' : 'Connect wallet'}</button>
+        <button type="button" class="btn-amber" id="btnRushModal" ${rush || rushCd || state.tickets < 1 ? 'disabled' : ''}>
+          ${rush ? 'Rush active' : rushCd ? 'Rush cooling…' : 'Rush hour (1 ticket)'}
         </button>
-        <button type="button" class="tab-btn${isWorld ? ' active' : ''}" role="tab" aria-selected="${isWorld ? 'true' : 'false'}" data-tab="world">
-          <span class="tab-ico" aria-hidden="true">▦</span>
-          World
+        <button type="button" class="btn-muted" id="btnBpModal">Season pass</button>
+        <button type="button" class="btn-primary" id="btnExpandModal" ${canExpand ? '' : 'disabled'}>
+          Expand floor · ${expandCost}¢ (${state.slotCount}/${SLOT_MAX})
         </button>
-        <button type="button" class="tab-btn${isShop ? ' active' : ''}" role="tab" aria-selected="${isShop ? 'true' : 'false'}" data-tab="shop">
-          <span class="tab-ico" aria-hidden="true">◈</span>
-          Shop
-        </button>
-      </nav>
+      </div>
+      <section class="home-machines-section" style="margin-top:12px">
+        <h2>Your machines</h2>
+        <div class="arcade-room">
+          <div class="room-wall">
+            <div class="strip">Active floor</div>
+          </div>
+          <div class="room-floor room-floor--home">
+            <div class="floor-grid">${machineCards || `<div class="slot">No cabinets yet — open <strong>Shop</strong> and place inside the hall.</div>`}</div>
+          </div>
+        </div>
+      </section>
     </div>
   `;
-
-  const wSlot = root.querySelector('#world3dSlot');
-  if (preservedWorldHost && wSlot) {
-    wSlot.replaceWith(preservedWorldHost);
-  } else if (wSlot) {
-    wSlot.id = 'world3dHost';
-    wSlot.classList.add('world-3d-host');
-  }
-
-  root.querySelectorAll('.tab-bar .tab-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const t = btn.getAttribute('data-tab');
-      if (t === 'home' || t === 'world' || t === 'shop') {
-        setActiveTab(t);
-        render(state, root);
-      }
-    });
+  bg.querySelector('.close').onclick = () => bg.remove();
+  bg.addEventListener('click', (e) => {
+    if (e.target === bg) bg.remove();
   });
 
-  root.querySelector('#gdtMenuBtn')?.addEventListener('click', () => {
-    toast('Studio: Home (actions), World (3D park), Shop (cabinets).');
-  });
-  root.querySelector('#gdtInfoFab')?.addEventListener('click', () =>
-    openBattlePassModal(state, () => render(state, root)),
-  );
-
-  root.querySelector('#btnClaw')?.addEventListener('click', clawHandler);
-  const boothBtn = root.querySelector('#clawBoothBtn');
-  if (boothBtn) boothBtn.onclick = clawHandler;
-
-  root.querySelector('#btnWallet')?.addEventListener('click', async () => {
+  bg.querySelector('#btnWalletModal')?.addEventListener('click', async () => {
     const s = getSolana();
     if (!s) {
       toast('No wallet (open in Phantom / Seeker)', true);
@@ -1800,7 +1640,7 @@ function render(state, root) {
     toast('Wallet refreshed');
   });
 
-  root.querySelector('#btnRush')?.addEventListener('click', () => {
+  bg.querySelector('#btnRushModal')?.addEventListener('click', () => {
     const now = Date.now();
     if (now < state.rushEnd || now < state.rushCooldownUntil) return;
     if (state.tickets < 1) {
@@ -1814,14 +1654,16 @@ function render(state, root) {
     gameAudio.sfxRush();
     toast('Rush hour — double credits!');
     saveState(state);
+    bg.remove();
     render(state, root);
   });
 
-  root.querySelector('#btnBp')?.addEventListener('click', () =>
-    openBattlePassModal(state, () => render(state, root)),
-  );
+  bg.querySelector('#btnBpModal')?.addEventListener('click', () => {
+    bg.remove();
+    openBattlePassModal(state, () => render(state, root));
+  });
 
-  root.querySelector('#btnExpand')?.addEventListener('click', () => {
+  bg.querySelector('#btnExpandModal')?.addEventListener('click', () => {
     if (state.slotCount >= SLOT_MAX) return;
     const cost = SLOT_EXPAND_COST(state.slotCount);
     if (state.coins < cost) return;
@@ -1830,39 +1672,11 @@ function render(state, root) {
     gameAudio.sfxCoin();
     toast(`Room expanded — ${state.slotCount} spots`);
     saveState(state);
+    bg.remove();
     render(state, root);
   });
 
-  root.querySelectorAll('[data-buy]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const id = btn.getAttribute('data-buy');
-      const t = typeById(id);
-      if (!t || state.coins < t.cost) return;
-      if (state.placementPending) {
-        toast('Finish or cancel the current placement first', true);
-        return;
-      }
-      if (state.machines.length >= state.slotCount) {
-        toast('Park full — expand in Home', true);
-        return;
-      }
-      state.placementPending = { typeId: id };
-      setActiveTab('world');
-      saveState(state);
-      gameAudio.sfxUi();
-      toast(`${t.name} — aim ghost on grass, then Place`);
-      render(state, root);
-    });
-  });
-
-  root.querySelector('#btnPlaceCommit')?.addEventListener('click', () => {
-    commitPlacement(state, root);
-  });
-  root.querySelector('#btnPlaceCancel')?.addEventListener('click', () => {
-    cancelPlacement(state, root);
-  });
-
-  root.querySelectorAll('[data-upgrade]').forEach((btn) => {
+  bg.querySelectorAll('[data-upgrade]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const id = btn.getAttribute('data-upgrade');
       const m = state.machines.find((x) => x.id === id);
@@ -1878,11 +1692,12 @@ function render(state, root) {
       gameAudio.sfxCoin();
       toast(`Upgraded to Lv ${m.level}`);
       saveState(state);
+      bg.remove();
       render(state, root);
     });
   });
 
-  root.querySelectorAll('[data-repair]').forEach((btn) => {
+  bg.querySelectorAll('[data-repair]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const id = btn.getAttribute('data-repair');
       const m = state.machines.find((x) => x.id === id);
@@ -1898,8 +1713,158 @@ function render(state, root) {
       gameAudio.sfxRepair();
       toast('Cabinet fixed');
       saveState(state);
+      bg.remove();
       render(state, root);
     });
+  });
+
+  document.body.appendChild(bg);
+  if (getSolana()?.publicKey) void refreshWalletArcade(state);
+}
+
+function render(state, root) {
+  gameStateBag.current = state;
+  appRoot = root;
+  ensureClawDay(state);
+
+  const preservedWorldHost = (() => {
+    const el = document.getElementById('world3dHost');
+    return el?.parentNode ? el.parentNode.removeChild(el) : null;
+  })();
+
+  const clawLeft = CLAW_UNLIMITED_TEST
+    ? Number.POSITIVE_INFINITY
+    : Math.max(0, CLAW_PLAYS_PER_DAY - state.claw.plays);
+  const clawExhausted = !CLAW_UNLIMITED_TEST && clawLeft === 0;
+  const clawLabel = CLAW_UNLIMITED_TEST
+    ? 'Prize claw · Unlimited (test)'
+    : clawLeft === 0
+      ? 'Prize claw · Available tomorrow (UTC)'
+      : `Prize claw · ${clawLeft} of ${CLAW_PLAYS_PER_DAY} plays remaining`;
+
+  const pend = state.placementPending;
+  const pendType = pend ? typeById(pend.typeId) : null;
+
+  const bpPct = Math.min(100, (state.bp.tier / BP_MAX_TIER) * 100);
+  let hintDismissed = false;
+  try {
+    hintDismissed = localStorage.getItem('arcade-hint-dismissed') === '1';
+  } catch {
+    hintDismissed = false;
+  }
+  const muted = gameAudio.isMuted();
+
+  const clawHandler = () => {
+    void openClawMachine(state, () => render(state, root)).catch(() => {
+      toast('Could not open claw machine.', true);
+    });
+  };
+
+  root.innerHTML = `
+    <div class="app-shell gdt-shell game-landscape-shell">
+      <header class="gdt-top-hud game-hud-landscape" aria-label="Studio status">
+        <div class="gdt-hud-left">
+          <button type="button" class="gdt-icon-btn" id="gdtMenuBtn" aria-label="Tips">☰</button>
+          <button type="button" class="gdt-icon-btn gdt-mute-btn" id="btnMute" aria-label="${muted ? 'Unmute sound' : 'Mute sound'}">${muted ? '🔇' : '🔊'}</button>
+          <div class="gdt-bubble gdt-bubble-orange" title="Tickets">
+            <span class="gdt-bubble-ico" aria-hidden="true">◆</span>
+            <span data-stat="tickets">${state.tickets}</span>
+          </div>
+          <div class="gdt-bubble gdt-bubble-yellow" title="Ambience">
+            <span class="gdt-bubble-ico" aria-hidden="true">◎</span>
+            <span data-stat="comfort">${Math.round(state.comfort)}</span>
+          </div>
+        </div>
+        <div class="gdt-hud-center">
+          <div class="gdt-project-card">
+            <div class="gdt-project-title">Arcade Empire</div>
+            <div class="gdt-project-genre">3D venue · Third person</div>
+            <div class="gdt-progress-block">
+              <div class="gdt-progress-label">Season pass · Tier <span data-stat="bp-tier">${state.bp.tier}</span></div>
+              <div class="gdt-progress-bar"><i data-bp-bar style="width:${bpPct}%"></i></div>
+            </div>
+            <div class="gdt-hype-pill">Hype <strong data-stat="hype">${Math.round(state.hype)}%</strong></div>
+          </div>
+        </div>
+        <div class="gdt-hud-right">
+          <div class="gdt-bubble gdt-bubble-blue" title="Credits">
+            <span class="gdt-bubble-ico" aria-hidden="true">⬡</span>
+            <span data-stat="coins-short">${formatShortNumber(state.coins)}</span>
+          </div>
+          <div class="gdt-bubble gdt-bubble-teal" title="Machines in hall">
+            <span class="gdt-bubble-ico" aria-hidden="true">▣</span>
+            <span data-stat="machines-n">${state.machines.length}</span>
+          </div>
+          <div class="gdt-hud-stack">
+            <div class="gdt-hud-line"><span class="gdt-hud-ico" aria-hidden="true">🕐</span> <span data-stat="gdt-time">${formatGdtWeekLine()}</span></div>
+            <div class="gdt-hud-line"><span class="gdt-hud-ico" aria-hidden="true">♥</span> <span data-stat="fans">${formatShortNumber(fanCountFromState(state))}</span> Fans</div>
+            <div class="gdt-hud-line gdt-money"><span class="gdt-hud-ico" aria-hidden="true">$</span> <span data-stat="coins-short">${formatShortNumber(state.coins)}</span></div>
+          </div>
+          <a class="gdt-source-pill" href="https://github.com/jonaskroeger26/Arcade" target="_blank" rel="noopener noreferrer" title="Source">src</a>
+        </div>
+      </header>
+      <div class="gdt-main gdt-main-world game-viewport">
+        <div class="world-gl-loading" id="worldGlLoading" aria-live="polite" aria-busy="true">
+          <div class="world-gl-loading-inner">
+            <div class="world-gl-spinner" aria-hidden="true"></div>
+            <span>Loading world…</span>
+          </div>
+        </div>
+        <div id="world3dSlot"></div>
+        <button type="button" class="gdt-info-fab" id="gdtInfoFab" aria-label="Season pass">i</button>
+        ${!hintDismissed ? `
+        <div class="game-welcome-banner game-welcome-float">
+          <p><strong>Welcome.</strong> Walk to the hall, go through the door, and place cabinets on the wood floor. <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or drag to move.</p>
+          <button type="button" class="btn-dismiss-hint" id="btnDismissHint">Got it</button>
+        </div>` : ''}
+        <p class="game-control-hint" aria-hidden="true"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk · pointer aims ghost · <strong>Place</strong> / <strong>Space</strong> confirm</p>
+        ${pend && pendType ? `
+        <div class="placement-bar placement-bar--float">
+          <span class="placement-bar-txt">Placing <strong>${escapeHtml(pendType.name)}</strong> — ${pendType.cost}¢ on confirm</span>
+          <button type="button" class="btn-primary" id="btnPlaceCommit">Place here</button>
+          <button type="button" class="btn-secondary" id="btnPlaceCancel">Cancel</button>
+        </div>` : ''}
+        <div class="game-fab-row" role="toolbar" aria-label="Quick actions">
+          <button type="button" class="game-fab-btn" id="btnFabShop">Shop</button>
+          <button type="button" class="btn-claw game-fab-btn game-fab-btn--claw" id="btnClaw" ${clawExhausted ? 'disabled' : ''}>${clawLabel}</button>
+          <button type="button" class="game-fab-btn" id="btnFabHall">Hall</button>
+        </div>
+        <div class="world-touch-controls" id="worldTouchControls" aria-hidden="false">
+          <span class="touch-hint">Drag</span>
+          <div class="touch-joystick" aria-hidden="true">
+            <div class="touch-joystick-base"></div>
+            <div class="touch-joystick-stick"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const wSlot = root.querySelector('#world3dSlot');
+  if (preservedWorldHost && wSlot) {
+    wSlot.replaceWith(preservedWorldHost);
+  } else if (wSlot) {
+    wSlot.id = 'world3dHost';
+    wSlot.classList.add('world-3d-host');
+  }
+
+  root.querySelector('#gdtMenuBtn')?.addEventListener('click', () => {
+    toast('Shop: buy gear · Hall: upgrades & wallet · Enter the building to place cabinets.');
+  });
+  root.querySelector('#gdtInfoFab')?.addEventListener('click', () =>
+    openBattlePassModal(state, () => render(state, root)),
+  );
+
+  root.querySelector('#btnClaw')?.addEventListener('click', clawHandler);
+
+  root.querySelector('#btnFabShop')?.addEventListener('click', () => openShopModal(state, root));
+  root.querySelector('#btnFabHall')?.addEventListener('click', () => openHallModal(state, root));
+
+  root.querySelector('#btnPlaceCommit')?.addEventListener('click', () => {
+    commitPlacement(state, root);
+  });
+  root.querySelector('#btnPlaceCancel')?.addEventListener('click', () => {
+    cancelPlacement(state, root);
   });
 
   root.querySelector('#btnMute')?.addEventListener('click', () => {
@@ -1953,7 +1918,7 @@ function boot() {
     const el = ev.target;
     if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
     const s = gameStateBag.current;
-    if (!s?.placementPending || getActiveTab() !== 'world') return;
+    if (!s?.placementPending) return;
     ev.preventDefault();
     commitPlacement(s, document.getElementById('app'));
   });
@@ -1969,12 +1934,12 @@ function boot() {
         if (rush) el.classList.add('rush');
         else el.classList.remove('rush');
       });
-      const rushBtn = document.getElementById('btnRush');
-      if (rushBtn) {
+      const rushModalBtn = document.getElementById('btnRushModal');
+      if (rushModalBtn) {
         const cd = Date.now() < state.rushCooldownUntil;
         const need = state.tickets < 1;
-        rushBtn.disabled = rush || cd || need;
-        rushBtn.textContent = rush ? 'Rush active' : cd ? 'Rush cooling…' : 'Rush hour (1 ticket)';
+        rushModalBtn.disabled = rush || cd || need;
+        rushModalBtn.textContent = rush ? 'Rush active' : cd ? 'Rush cooling…' : 'Rush hour (1 ticket)';
       }
       ensureClawDay(state);
       const left = CLAW_UNLIMITED_TEST
@@ -1990,8 +1955,6 @@ function boot() {
             ? 'Prize claw · Available tomorrow (UTC)'
             : `Prize claw · ${left} of ${CLAW_PLAYS_PER_DAY} plays remaining`;
       }
-      const boothClaw = document.getElementById('clawBoothBtn');
-      if (boothClaw) boothClaw.disabled = clawDead;
     }
     requestAnimationFrame(loop);
   }
