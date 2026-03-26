@@ -11,7 +11,7 @@ import {
   computeInteriorModeFromPosition,
 } from './arcade-house.js';
 
-export const WORLD_HALF = 180;
+export const WORLD_HALF = 320;
 const CAM_OUT = { dist: 13, height: 6.8, fov: 50, lookY: 1.35, roomBlend: 0 };
 /** Pokémon-style room: higher, closer, slight pull toward room center */
 const CAM_IN = { dist: 6.5, height: 9.8, fov: 54, lookY: 1.02, roomBlend: 0.2 };
@@ -35,6 +35,14 @@ const TAG_COLOR = {
 function colorForTag(tag) {
   return TAG_COLOR[tag] ?? TAG_COLOR.default;
 }
+
+const ROAD_MASKS = [
+  { cx: 0, cz: 0, w: 28, d: 320 },
+  { cx: 0, cz: 0, w: 320, d: 28 },
+  { cx: 190, cz: 0, w: 24, d: 300 },
+  { cx: 190, cz: 0, w: 180, d: 22 },
+  { cx: 95, cz: 0, w: 180, d: 20 },
+];
 
 function toon(color) {
   return new THREE.MeshToonMaterial({ color });
@@ -99,7 +107,18 @@ export function createArcadeWorld(host, opts) {
   for (let i = 0; i < posAttr.count; i++) {
     const x = posAttr.getX(i);
     const y = posAttr.getY(i);
-    const h = Math.sin(x * 0.11) * Math.cos(y * 0.09) * 0.28 + Math.sin(x * 0.31 + y * 0.27) * 0.08;
+    let h = Math.sin(x * 0.11) * Math.cos(y * 0.09) * 0.28 + Math.sin(x * 0.31 + y * 0.27) * 0.08;
+    for (const m of ROAD_MASKS) {
+      const dx = Math.abs(x - m.cx) - m.w / 2;
+      const dz = Math.abs(y - m.cz) - m.d / 2;
+      const adx = Math.max(0, dx);
+      const adz = Math.max(0, dz);
+      const dist = Math.hypot(adx, adz);
+      if (dist < 2.8) {
+        const tFlat = 1 - Math.min(1, dist / 2.8);
+        h = h * (1 - tFlat) + 0.01 * tFlat;
+      }
+    }
     posAttr.setZ(i, h);
     const t = 0.5 + 0.5 * Math.sin(x * 0.05) * Math.cos(y * 0.05);
     const mix = c1.clone().lerp(c2, t).lerp(c3, Math.random() * 0.15);
@@ -118,7 +137,9 @@ export function createArcadeWorld(host, opts) {
   scene.add(ground);
 
   const grid = new THREE.GridHelper(WORLD_HALF * 2, 44, 0x3d7a4a, 0x2d5c38);
-  grid.position.y = 0.04;
+  grid.position.y = 0.015;
+  grid.material.opacity = 0.22;
+  grid.material.transparent = true;
   scene.add(grid);
 
   const path = new THREE.Mesh(
@@ -167,6 +188,30 @@ export function createArcadeWorld(host, opts) {
     tg.position.set(tx, 0, tz);
     scene.add(tg);
   }
+  for (let i = 0; i < 120; i++) {
+    const tx = (Math.random() * 2 - 1) * (WORLD_HALF - 18);
+    const tz = (Math.random() * 2 - 1) * (WORLD_HALF - 18);
+    if (overlapsHouse(tx, tz)) continue;
+    let nearRoad = false;
+    for (const r of ROAD_MASKS) {
+      if (Math.abs(tx - r.cx) < r.w / 2 + 6 && Math.abs(tz - r.cz) < r.d / 2 + 6) {
+        nearRoad = true;
+        break;
+      }
+    }
+    if (nearRoad) continue;
+    const tg = new THREE.Group();
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.42, 1.8, 8), trunkMat);
+    trunk.position.y = 0.9;
+    trunk.castShadow = true;
+    tg.add(trunk);
+    const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.5 + Math.random() * 1.1, 3 + Math.random() * 1.8, 10), leafMat);
+    leaves.position.y = 2.55;
+    leaves.castShadow = true;
+    tg.add(leaves);
+    tg.position.set(tx, 0, tz);
+    scene.add(tg);
+  }
 
   const blockMat = toon(0xa5b3c8);
   for (let i = 0; i < 24; i++) {
@@ -183,12 +228,11 @@ export function createArcadeWorld(host, opts) {
   const roadMat = toon(0x5f6678);
   const laneMat = toon(0xffdf85);
   const sideMat = toon(0xbec8d7);
-  const houseBodyMat = toon(0xe8edf6);
   const houseRoofMat = toon(0xbd7058);
 
   function addRoad(cx, cz, w, d) {
     const road = new THREE.Mesh(new THREE.BoxGeometry(w, 0.04, d), roadMat);
-    road.position.set(cx, 0.02, cz);
+    road.position.set(cx, 0.07, cz);
     road.receiveShadow = true;
     scene.add(road);
   }
@@ -199,7 +243,7 @@ export function createArcadeWorld(host, opts) {
   }
   function addSidewalk(cx, cz, w, d) {
     const s = new THREE.Mesh(new THREE.BoxGeometry(w, 0.08, d), sideMat);
-    s.position.set(cx, 0.04, cz);
+    s.position.set(cx, 0.11, cz);
     s.receiveShadow = true;
     scene.add(s);
   }
@@ -209,6 +253,12 @@ export function createArcadeWorld(host, opts) {
     base.castShadow = true;
     base.receiveShadow = true;
     scene.add(base);
+    const trim = new THREE.Mesh(
+      new THREE.BoxGeometry(sx + 0.2, 0.2, sz + 0.2),
+      toon(0xfaf7ef),
+    );
+    trim.position.set(cx, h - 0.35, cz);
+    scene.add(trim);
     const roof = new THREE.Mesh(
       new THREE.ConeGeometry(Math.max(sx, sz) * 0.66, Math.max(1, h * 0.48), 4),
       houseRoofMat,
@@ -217,37 +267,72 @@ export function createArcadeWorld(host, opts) {
     roof.rotation.y = Math.PI * 0.25;
     roof.castShadow = true;
     scene.add(roof);
+    const door = new THREE.Mesh(new THREE.BoxGeometry(1.05, 1.9, 0.14), toon(0x7a4b37));
+    door.position.set(cx, 0.95, cz + sz / 2 + 0.04);
+    scene.add(door);
+    const step = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.14, 0.8), toon(0xc6ced9));
+    step.position.set(cx, 0.08, cz + sz / 2 + 0.45);
+    scene.add(step);
+    const rows = Math.max(1, Math.floor(h / 3.3));
+    const cols = Math.max(1, Math.floor(sx / 2.2));
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const wx = cx - sx / 2 + 0.8 + c * ((sx - 1.6) / Math.max(1, cols - 1));
+        const wy = 1.45 + r * 1.65;
+        const win = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.9, 0.08), toon(0xaed8ff));
+        win.position.set(wx, wy, cz + sz / 2 + 0.03);
+        scene.add(win);
+      }
+    }
+    const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.4, 0.5), toon(0xd9dbe2));
+    chimney.position.set(cx + sx * 0.2, h + 0.8, cz - sz * 0.2);
+    scene.add(chimney);
   }
 
-  // Arcade district roads / props
-  addRoad(0, 20, 22, 124);
-  addLane(0, 20, 0.6, 110);
-  addRoad(0, -44, 74, 18);
-  addSidewalk(12.6, 12, 2.4, 96);
-  addSidewalk(-12.6, 12, 2.4, 96);
-  addCityHouse(-22, -28, 8, 8, 6.4, 0xdce5f0);
-  addCityHouse(-25, -10, 7, 6, 5.6, 0xf0e8db);
-  addCityHouse(23, -24, 8, 7, 6.7, 0xe5efe0);
-  addCityHouse(24, -2, 6.5, 6.5, 5.3, 0xf2e3e1);
-  addCityHouse(-28, 20, 7, 8, 6, 0xe3edf8);
-  addCityHouse(27, 18, 8, 8, 6.2, 0xe8e2f1);
+  // Continuous city roads
+  addRoad(0, 0, 24, 320);
+  addLane(0, 0, 0.7, 300);
+  addRoad(0, 0, 320, 24);
+  addLane(0, 0, 300, 0.7);
+  addRoad(190, 0, 22, 300);
+  addLane(190, 0, 0.65, 280);
+  addRoad(190, 0, 180, 20);
+  addLane(190, 0, 162, 0.65);
+  addRoad(95, 0, 180, 18);
+  addLane(95, 0, 162, 0.62);
 
-  // Downtown district (2nd zone destination)
-  const downtownCenter = new THREE.Vector3(118, 0, -20);
-  addRoad(downtownCenter.x, downtownCenter.z, 26, 126);
-  addLane(downtownCenter.x, downtownCenter.z, 0.7, 110);
-  addRoad(downtownCenter.x, downtownCenter.z + 30, 82, 16);
-  addSidewalk(downtownCenter.x - 14.5, downtownCenter.z, 2.6, 108);
-  addSidewalk(downtownCenter.x + 14.5, downtownCenter.z, 2.6, 108);
-  for (let i = 0; i < 8; i++) {
-    const sx = 7 + Math.random() * 4;
-    const sz = 7 + Math.random() * 4;
-    const h = 9 + Math.random() * 12;
+  addSidewalk(13.8, 0, 2.6, 300);
+  addSidewalk(-13.8, 0, 2.6, 300);
+  addSidewalk(0, 13.8, 300, 2.6);
+  addSidewalk(0, -13.8, 300, 2.6);
+  addSidewalk(203.2, 0, 2.4, 278);
+  addSidewalk(176.8, 0, 2.4, 278);
+
+  // Residential + downtown facades
+  const houseSeeds = [
+    [-34, -64, 8.2, 8.1, 6.8, 0xdce5f0],
+    [-34, -34, 7.5, 7.1, 6.2, 0xf0e8db],
+    [-34, -4, 8.8, 7.2, 7.2, 0xe5efe0],
+    [-34, 26, 7.6, 8.3, 6.1, 0xf2e3e1],
+    [-34, 56, 8.3, 8.1, 6.4, 0xe3edf8],
+    [34, -66, 8.6, 8.2, 7, 0xe8e2f1],
+    [34, -36, 8.2, 6.8, 6.3, 0xe6f0e2],
+    [34, -6, 7.4, 7.5, 6, 0xf3e6d8],
+    [34, 24, 8.6, 8.2, 6.7, 0xdfe9f5],
+    [34, 54, 8.2, 7.9, 6.5, 0xe9e4f2],
+  ];
+  for (const [x, z, sx, sz, h, c] of houseSeeds) addCityHouse(x, z, sx, sz, h, c);
+
+  const downtownCenter = new THREE.Vector3(190, 0, 0);
+  for (let i = 0; i < 14; i++) {
+    const sx = 8 + Math.random() * 4.5;
+    const sz = 8 + Math.random() * 4;
+    const h = 10 + Math.random() * 16;
     const side = i % 2 === 0 ? -1 : 1;
     const row = Math.floor(i / 2);
     addCityHouse(
-      downtownCenter.x + side * (22 + Math.random() * 7),
-      downtownCenter.z - 42 + row * 22 + (Math.random() * 3 - 1.5),
+      downtownCenter.x + side * (22 + Math.random() * 8),
+      downtownCenter.z - 96 + row * 28 + (Math.random() * 4 - 2),
       sx,
       sz,
       h,
@@ -305,8 +390,8 @@ export function createArcadeWorld(host, opts) {
   scene.add(hallLight);
 
   const BUS_STOPS = {
-    arcade: new THREE.Vector3(-6, 0, 35),
-    downtown: new THREE.Vector3(112, 0, 34),
+    arcade: new THREE.Vector3(-7, 0, 112),
+    downtown: new THREE.Vector3(183, 0, 112),
   };
   let currentDistrict = 'arcade';
 
@@ -331,9 +416,41 @@ export function createArcadeWorld(host, opts) {
   makeBusStop(BUS_STOPS.arcade, 0x5d8bff);
   makeBusStop(BUS_STOPS.downtown, 0xf59e0b);
 
-  /** @type {Array<{mesh: THREE.Group, path: Array<THREE.Vector3>, speed: number, t: number}>} */
+  function makeBus() {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(6.8, 2.2, 2.2), toon(0xf4b942));
+    body.position.y = 1.35;
+    body.castShadow = true;
+    g.add(body);
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(6.84, 0.35, 0.12), toon(0x2f3e5f));
+    stripe.position.set(0, 1.15, 1.12);
+    g.add(stripe);
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.3, 2), toon(0xdff0ff));
+    cabin.position.set(0.7, 2.15, 0);
+    g.add(cabin);
+    const wheelMat = toon(0x202636);
+    for (const [x, z] of [
+      [-2.2, -1.05],
+      [2.1, -1.05],
+      [-2.2, 1.05],
+      [2.1, 1.05],
+    ]) {
+      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.28, 14), wheelMat);
+      wheel.rotation.z = Math.PI / 2;
+      wheel.position.set(x, 0.48, z);
+      g.add(wheel);
+    }
+    scene.add(g);
+    return g;
+  }
+  const busVehicle = makeBus();
+  busVehicle.position.copy(BUS_STOPS.arcade);
+  busVehicle.position.y = 0;
+  busVehicle.rotation.y = Math.PI;
+
+  /** @type {Array<{mesh: THREE.Group, curve: THREE.CatmullRomCurve3, speed: number, t: number}>} */
   const trafficCars = [];
-  function makeCar(color, path, speed, offset = 0) {
+  function makeCar(color, points, speed, offset = 0) {
     const g = new THREE.Group();
     const body = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.9, 1.2), toon(color));
     body.position.y = 0.72;
@@ -355,24 +472,33 @@ export function createArcadeWorld(host, opts) {
       g.add(wheel);
     }
     scene.add(g);
-    trafficCars.push({ mesh: g, path, speed, t: offset });
+    const curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.18);
+    trafficCars.push({ mesh: g, curve, speed, t: offset });
   }
   const arcadeLoop = [
-    new THREE.Vector3(-4.6, 0, 44),
-    new THREE.Vector3(-4.6, 0, -48),
-    new THREE.Vector3(4.6, 0, -48),
-    new THREE.Vector3(4.6, 0, 44),
+    new THREE.Vector3(-4.8, 0, 150),
+    new THREE.Vector3(-4.8, 0, -150),
+    new THREE.Vector3(4.8, 0, -150),
+    new THREE.Vector3(4.8, 0, 150),
   ];
   const downtownLoop = [
-    new THREE.Vector3(113.2, 0, 44),
-    new THREE.Vector3(113.2, 0, -64),
-    new THREE.Vector3(122.8, 0, -64),
-    new THREE.Vector3(122.8, 0, 44),
+    new THREE.Vector3(185.2, 0, 140),
+    new THREE.Vector3(185.2, 0, -140),
+    new THREE.Vector3(194.8, 0, -140),
+    new THREE.Vector3(194.8, 0, 140),
   ];
-  makeCar(0x5aa0ff, arcadeLoop, 0.06, 0);
-  makeCar(0xff7f66, arcadeLoop, 0.05, 0.5);
-  makeCar(0x34c38f, downtownLoop, 0.055, 0.2);
-  makeCar(0xe7b94f, downtownLoop, 0.06, 0.72);
+  const crossTown = [
+    new THREE.Vector3(8, 0, -4.8),
+    new THREE.Vector3(170, 0, -4.8),
+    new THREE.Vector3(170, 0, 4.8),
+    new THREE.Vector3(8, 0, 4.8),
+  ];
+  makeCar(0x5aa0ff, arcadeLoop, 0.026, 0);
+  makeCar(0xff7f66, arcadeLoop, 0.024, 0.35);
+  makeCar(0x34c38f, downtownLoop, 0.025, 0.18);
+  makeCar(0xe7b94f, downtownLoop, 0.023, 0.62);
+  makeCar(0x8b9cff, crossTown, 0.022, 0.11);
+  makeCar(0xff9d7d, crossTown, 0.021, 0.58);
 
   // —— Player avatar (simple humanoid + walk cycle) ——
   const player = new THREE.Group();
@@ -676,17 +802,16 @@ export function createArcadeWorld(host, opts) {
   function updateTraffic(dt) {
     for (const c of trafficCars) {
       c.t = (c.t + c.speed * dt) % 1;
-      const n = c.path.length;
-      const segF = c.t * n;
-      const i0 = Math.floor(segF) % n;
-      const i1 = (i0 + 1) % n;
-      const lt = segF - Math.floor(segF);
-      const p0 = c.path[i0];
-      const p1 = c.path[i1];
-      c.mesh.position.lerpVectors(p0, p1, lt);
+      const p = c.curve.getPointAt(c.t);
+      const p2 = c.curve.getPointAt((c.t + 0.0025) % 1);
+      c.mesh.position.copy(p);
       c.mesh.position.y = 0;
-      c.mesh.rotation.y = Math.atan2(p1.x - p0.x, p1.z - p0.z);
+      c.mesh.rotation.y = Math.atan2(p2.x - p.x, p2.z - p.z);
     }
+
+    const stop = currentDistrict === 'arcade' ? BUS_STOPS.arcade : BUS_STOPS.downtown;
+    busVehicle.position.lerp(new THREE.Vector3(stop.x, 0, stop.z), Math.min(1, dt * 3.5));
+    busVehicle.rotation.y = Math.PI;
   }
 
   function nearestBusStop() {
@@ -769,14 +894,19 @@ export function createArcadeWorld(host, opts) {
       player.position.x = resolved.x;
       player.position.z = resolved.z;
 
-      const moving = Math.abs(fwd) > 0.08 || Math.abs(turn) > 0.12;
-      walkPhase += dt * (moving ? 10 : 0);
-      const swing = Math.sin(walkPhase) * 0.55;
+      const speedAmt = Math.min(1, Math.abs(fwd) + Math.abs(turn) * 0.45);
+      const moving = speedAmt > 0.05;
+      walkPhase += dt * (2.8 + speedAmt * 9.4);
+      const swing = Math.sin(walkPhase) * (0.22 + speedAmt * 0.46);
+      const elbow = Math.sin(walkPhase + Math.PI * 0.5) * 0.08;
       legL.rotation.x = swing;
       legR.rotation.x = -swing;
-      armL.rotation.x = -swing * 0.35;
-      armR.rotation.x = swing * 0.35;
-      avatar.position.y = moving ? Math.abs(Math.sin(walkPhase * 2)) * 0.05 : 0;
+      armL.rotation.x = -swing * 0.52 + elbow;
+      armR.rotation.x = swing * 0.52 - elbow;
+      torso.rotation.x = -Math.abs(swing) * 0.12;
+      const sideLean = Math.max(-0.22, Math.min(0.22, turn * 0.11));
+      torso.rotation.z = sideLean;
+      avatar.position.y = moving ? Math.sin(walkPhase * 2) * 0.03 : 0;
 
       if (!doorTransition) {
         const nextInside = nextInteriorMode(player.position.x, player.position.z, interiorMode);
@@ -796,7 +926,7 @@ export function createArcadeWorld(host, opts) {
               mode: 'bus',
               pendingInside: false,
               toDistrict: 'downtown',
-              targetPos: new THREE.Vector3(112, 0, 28),
+              targetPos: new THREE.Vector3(183, 0, 104),
               targetRotY: Math.PI,
             };
           } else if (near.id === 'downtown' && currentDistrict === 'downtown') {
@@ -806,7 +936,7 @@ export function createArcadeWorld(host, opts) {
               mode: 'bus',
               pendingInside: false,
               toDistrict: 'arcade',
-              targetPos: new THREE.Vector3(-6, 0, 28),
+              targetPos: new THREE.Vector3(-7, 0, 104),
               targetRotY: Math.PI,
             };
           }
