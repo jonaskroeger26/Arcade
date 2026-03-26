@@ -88,6 +88,49 @@ export function getHouseWallSegments() {
  * @param {number} r
  * @param {Array<{ minX: number, maxX: number, minZ: number, maxZ: number }>} segments
  */
+/**
+ * Whether the avatar is physically in the hall floor (for initial load / save restore).
+ * @param {number} px
+ * @param {number} pz
+ */
+export function computeInteriorModeFromPosition(px, pz) {
+  const { cx, cz, hw, hd } = HOUSE;
+  const zS = cz + hd;
+  const zN = cz - hd;
+  return (
+    Math.abs(px - cx) < hw - 0.12 &&
+    pz < zS - 0.12 &&
+    pz > zN + 0.12
+  );
+}
+
+/**
+ * Pokémon-style door hysteresis: interior camera only flips after crossing the threshold,
+ * with different enter/exit lines so the view does not flicker at the door.
+ * @param {number} px
+ * @param {number} pz
+ * @param {boolean} wasInside
+ */
+export function nextInteriorMode(px, pz, wasInside) {
+  const { cx, cz, hw, hd, doorHalfW } = HOUSE;
+  const zS = cz + hd;
+  const zN = cz - hd;
+  const enterZ = zS - 0.28;
+  const exitZ = zS + 0.08;
+  const inHallX = Math.abs(px - cx) < hw - 0.18;
+  const inDoorX = Math.abs(px - cx) < doorHalfW + 1.35;
+
+  if (wasInside) {
+    if (pz > exitZ && inDoorX) return false;
+    if (pz > zS + 0.55) return false;
+    if (pz < zN - 0.25) return false;
+    if (!inHallX) return false;
+    return true;
+  }
+  if (pz < enterZ && pz > zN + 0.12 && inHallX) return true;
+  return false;
+}
+
 export function resolveCircleWallSegments(px, pz, r, segments) {
   let x = px;
   let z = pz;

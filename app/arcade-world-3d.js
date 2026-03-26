@@ -7,11 +7,16 @@ import {
   getHouseWallSegments,
   isInsideHouseFloor,
   resolveCircleWallSegments,
+  nextInteriorMode,
+  computeInteriorModeFromPosition,
 } from './arcade-house.js';
 
 export const WORLD_HALF = 44;
-const CAM_DIST = 13;
-const CAM_HEIGHT = 6.8;
+const CAM_OUT = { dist: 13, height: 6.8, fov: 50, lookY: 1.35, roomBlend: 0 };
+/** Pokémon-style room: higher, closer, slight pull toward room center */
+const CAM_IN = { dist: 6.5, height: 9.8, fov: 54, lookY: 1.02, roomBlend: 0.2 };
+const FADE_OUT_MS = 220;
+const FADE_IN_MS = 260;
 const MOVE_SPEED = 16;
 const ROT_SPEED = 2.4;
 const MIN_MACHINE_GAP = 3.4;
@@ -56,7 +61,28 @@ export function createArcadeWorld(host, opts) {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.domElement.className = 'world-three-canvas';
+  host.style.position = 'relative';
   host.appendChild(renderer.domElement);
+
+  const overlayEl = document.createElement('div');
+  overlayEl.className = 'world-transition-overlay';
+  overlayEl.setAttribute('aria-hidden', 'true');
+  overlayEl.style.opacity = '0';
+  host.appendChild(overlayEl);
+
+  function setOverlayAlpha(a) {
+    overlayEl.style.opacity = String(Math.max(0, Math.min(1, a)));
+  }
+
+  function applySceneMode(inside) {
+    if (inside) {
+      scene.fog = new THREE.Fog(0xd4c4b4, 3.5, 24);
+      scene.background = new THREE.Color(0xb8c8d8);
+    } else {
+      scene.fog = new THREE.Fog(0xb8d4f0, 32, 118);
+      scene.background = new THREE.Color(0x87b8e8);
+    }
+  }
 
   const gSeg = 48;
   const groundGeo = new THREE.PlaneGeometry(WORLD_HALF * 2.2, WORLD_HALF * 2.2, gSeg, gSeg);
@@ -267,6 +293,9 @@ export function createArcadeWorld(host, opts) {
   scene.add(player);
 
   let walkPhase = 0;
+  let interiorMode = false;
+  /** @type {{ start: number, phase: 'fadeOut' | 'fadeIn', pendingInside: boolean } | null} */
+  let doorTransition = null;
 
   const keys = new Set();
   let joyX = 0;
@@ -309,6 +338,10 @@ export function createArcadeWorld(host, opts) {
       player.position.z = p.z;
       player.rotation.y = typeof p.ry === 'number' ? p.ry : 0;
     }
+    if (!doorTransition) {
+      interiorMode = computeInteriorModeFromPosition(player.position.x, player.position.z);
+      applySceneMode(interiorMode);
+    }
   }
 
   function clampToWorld(x, z) {
@@ -333,10 +366,17 @@ export function createArcadeWorld(host, opts) {
     const ry = player.rotation.y;
     const px = player.position.x;
     const pz = player.position.z;
-    const cx = px - Math.sin(ry) * CAM_DIST;
-    const cz = pz - Math.cos(ry) * CAM_DIST;
-    camera.position.set(cx, CAM_HEIGHT, cz);
-    camera.lookAt(px, 1.35, pz);
+    const cam = interiorMode ? CAM_IN : CAM_OUT;
+    camera.fov = cam.fov;
+    camera.updateProjectionMatrix();
+    const { cx: hcx, cz: hcz } = HOUSE;
+    const blend = cam.roomBlend;
+    const tx = px * (1 - blend) + hcx * blend;
+    const tz = pz * (1 - blend) + hcz * blend;
+    const cxCam = tx - Math.sin(ry) * cam.dist;
+    const czCam = tz - Math.cos(ry) * cam.dist;
+    camera.position.set(cxCam, cam.height, czCam);
+    camera.lookAt(tx, cam.lookY, tz);
   }
 
   function ensureGhost(state) {
@@ -495,7 +535,30 @@ export function createArcadeWorld(host, opts) {
     ensureGhost(state);
 
     const dt = Math.min(0.05, 1 / 60);
-    if (active) {
+    const now = performance.now();
+    const inputFrozen = doorTransition != null;
+
+    if (doorTransition) {
+      const tr = doorTransition;
+      const elapsed = now - tr.start;
+      if (tr.phase === 'fadeOut') {
+        setOverlayAlpha(Math.min(1, elapsed / FADE_OUT_MS));
+        if (elapsed >= FADE_OUT_MS) {
+          interiorMode = tr.pendingInside;
+          applySceneMode(interiorMode);
+          doorTransition = { start: now, phase: 'fadeIn', pendingInside: tr.pendingInside };
+        }
+      } else {
+        const e2 = now - tr.start;
+        setOverlayAlpha(Math.max(0, 1 - e2 / FADE_IN_MS));
+        if (e2 >= FADE_IN_MS) {
+          setOverlayAlpha(0);
+          doorTransition = null;
+        }
+      }
+    }
+
+    if (active && !inputFrozen) {
       let fwd = joyY;
       let turn = -joyX;
       if (keys.has('w') || keys.has('arrowup')) fwd += 1;
@@ -523,7 +586,13 @@ export function createArcadeWorld(host, opts) {
       armR.rotation.x = swing * 0.35;
       avatar.position.y = moving ? Math.abs(Math.sin(walkPhase * 2)) * 0.05 : 0;
 
-      const now = performance.now();
+      if (!doorTransition) {
+        const nextInside = nextInteriorMode(player.position.x, player.position.z, interiorMode);
+        if (nextInside !== interiorMode) {
+          doorTransition = { start: now, phase: 'fadeOut', pendingInside: nextInside };
+        }
+      }
+
       if (now - lastPlayerSave > 600) {
         lastPlayerSave = now;
         onPlayerMoved({
