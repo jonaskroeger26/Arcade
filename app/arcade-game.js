@@ -18,6 +18,26 @@ function setActiveTab(tab) {
   } catch (_) {}
 }
 
+function formatShortNumber(n) {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return '—';
+  if (x >= 1e6) return `${(x / 1e6).toFixed(1)}M`;
+  if (x >= 1e3) return `${(x / 1e3).toFixed(1)}K`;
+  return String(Math.floor(x));
+}
+
+function formatGdtWeekLine() {
+  const d = new Date();
+  const y = d.getUTCFullYear() % 100;
+  const m = d.getUTCMonth() + 1;
+  const w = Math.min(4, Math.ceil(d.getUTCDate() / 7));
+  return `Y${y} M${m} W${w}`;
+}
+
+function fanCountFromState(state) {
+  return Math.round(state.hype * 200 + state.machines.length * 400 + 800);
+}
+
 function syncHudStats(state) {
   const coins = `${Math.floor(state.coins)}¢`;
   document.querySelectorAll('[data-stat="coins"]').forEach((el) => {
@@ -31,6 +51,25 @@ function syncHudStats(state) {
   });
   document.querySelectorAll('[data-stat="comfort"]').forEach((el) => {
     el.textContent = `${Math.round(state.comfort)}%`;
+  });
+  document.querySelectorAll('[data-stat="coins-short"]').forEach((el) => {
+    el.textContent = formatShortNumber(state.coins);
+  });
+  document.querySelectorAll('[data-stat="fans"]').forEach((el) => {
+    el.textContent = formatShortNumber(fanCountFromState(state));
+  });
+  document.querySelectorAll('[data-stat="gdt-time"]').forEach((el) => {
+    el.textContent = formatGdtWeekLine();
+  });
+  document.querySelectorAll('[data-stat="machines-n"]').forEach((el) => {
+    el.textContent = String(state.machines.length);
+  });
+  document.querySelectorAll('[data-stat="bp-tier"]').forEach((el) => {
+    el.textContent = String(state.bp.tier);
+  });
+  const bpPct = Math.min(100, (state.bp.tier / BP_MAX_TIER) * 100);
+  document.querySelectorAll('[data-bp-bar]').forEach((el) => {
+    el.style.width = `${bpPct}%`;
   });
 }
 
@@ -764,13 +803,14 @@ async function openClawMachine(state, rerender) {
     <div class="modal claw-modal" role="dialog" aria-modal="true" aria-labelledby="claw-heading">
       <div class="modal-inner">
         <h3 id="claw-heading">Prize claw</h3>
-        <p class="claw-sub">${CLAW_UNLIMITED_TEST ? `Test play ${played} · Front view plus left/right side panels for depth. Line up a sphere, then GRAB.` : `Play ${played} / ${CLAW_PLAYS_PER_DAY} · Use side panels to judge depth, then GRAB.`}</p>
+        <p class="claw-sub">${CLAW_UNLIMITED_TEST ? `Test play ${played} · Tap the left or right edge of the window for a side depth view; Front returns to the main angle.` : `Play ${played} / ${CLAW_PLAYS_PER_DAY} · Edge taps show depth; then GRAB.`}</p>
         <div class="claw-cabinet">
           <div class="claw-cabinet-bezel">
             <div class="claw-stage-wrap claw-stage-3d">
-              <div class="claw-three-host" role="img" aria-label="3D claw machine: front view with side depth panels">
-                <span class="claw-three-lbl claw-three-lbl-l" aria-hidden="true">Left side</span>
-                <span class="claw-three-lbl claw-three-lbl-r" aria-hidden="true">Right side</span>
+              <div class="claw-three-host" role="img" aria-label="3D claw machine: tap left or right edge for depth view">
+                <button type="button" class="claw-three-peek claw-three-peek-l" aria-label="Left depth view (pit from the side)">⟨</button>
+                <button type="button" class="claw-three-peek claw-three-peek-r" aria-label="Right depth view (pit from the side)">⟩</button>
+                <button type="button" class="claw-three-front" id="clawThreeViewFront" hidden aria-label="Return to front view">Front</button>
               </div>
             </div>
           </div>
@@ -808,6 +848,9 @@ async function openClawMachine(state, rerender) {
   `;
 
   const threeHost = overlay.querySelector('.claw-three-host');
+  const peekL = threeHost?.querySelector?.('.claw-three-peek-l') ?? null;
+  const peekR = threeHost?.querySelector?.('.claw-three-peek-r') ?? null;
+  const peekFront = threeHost?.querySelector?.('#clawThreeViewFront') ?? null;
   let sceneApi = null;
   if (threeHost) {
     try {
@@ -817,6 +860,11 @@ async function openClawMachine(state, rerender) {
         ballCx: CLAW_BALL_CX,
         svgMin: CLAW_SVG_X_MIN,
         svgMax: CLAW_SVG_X_MAX,
+        onViewMode(mode) {
+          peekL?.classList.toggle('is-active', mode === 'left');
+          peekR?.classList.toggle('is-active', mode === 'right');
+          if (peekFront) peekFront.hidden = mode === 'front';
+        },
       });
     } catch (_) {
       sceneApi = null;
@@ -825,6 +873,30 @@ async function openClawMachine(state, rerender) {
       threeHost.innerHTML = clawSvgMarkup();
     }
   }
+
+  function clawPeekOk() {
+    return sceneApi && phase !== 'dropping';
+  }
+  peekL?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!clawPeekOk()) return;
+    const m = sceneApi.getViewMode();
+    sceneApi.setViewMode(m === 'left' ? 'front' : 'left');
+  });
+  peekR?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!clawPeekOk()) return;
+    const m = sceneApi.getViewMode();
+    sceneApi.setViewMode(m === 'right' ? 'front' : 'right');
+  });
+  peekFront?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!clawPeekOk()) return;
+    sceneApi.setViewMode('front');
+  });
 
   const gantry = overlay.querySelector('#clawGantry');
   const gantryScale = overlay.querySelector('#clawGantryScale');
@@ -1032,6 +1104,7 @@ async function openClawMachine(state, rerender) {
   dropBtn.addEventListener('click', () => {
     if (phase !== 'aim') return;
     phase = 'dropping';
+    if (mode3d) sceneApi.setViewMode('front');
     dropBtn.disabled = true;
     if (joyBase) joyBase.classList.add('claw-joystick--disabled');
 
@@ -1388,33 +1461,85 @@ function render(state, root) {
   const isFloor = activeTab === 'floor';
   const isShop = activeTab === 'shop';
 
+  const bpPct = Math.min(100, (state.bp.tier / BP_MAX_TIER) * 100);
   root.innerHTML = `
-    <div class="app-shell">
-      <div class="main-scroll">
-        <div class="top">
-          <div class="top-row">
-            <div>
-              <h1>Arcade Empire</h1>
-              <p class="subtitle">Venue operations — use tabs below on mobile.</p>
+    <div class="app-shell gdt-shell">
+      <header class="gdt-top-hud" aria-label="Studio status">
+        <div class="gdt-hud-left">
+          <button type="button" class="gdt-icon-btn" id="gdtMenuBtn" aria-label="Menu">☰</button>
+          <div class="gdt-bubble gdt-bubble-orange" title="Tickets">
+            <span class="gdt-bubble-ico" aria-hidden="true">◆</span>
+            <span data-stat="tickets">${state.tickets}</span>
+          </div>
+          <div class="gdt-bubble gdt-bubble-yellow" title="Ambience">
+            <span class="gdt-bubble-ico" aria-hidden="true">◎</span>
+            <span data-stat="comfort">${Math.round(state.comfort)}</span>
+          </div>
+        </div>
+        <div class="gdt-hud-center">
+          <div class="gdt-project-card">
+            <div class="gdt-project-title">Arcade Empire</div>
+            <div class="gdt-project-genre">Simulation / Venue ops</div>
+            <div class="gdt-progress-block">
+              <div class="gdt-progress-label">Season pass · Tier <span data-stat="bp-tier">${state.bp.tier}</span></div>
+              <div class="gdt-progress-bar"><i data-bp-bar style="width:${bpPct}%"></i></div>
             </div>
-            <a href="https://github.com/jonaskroeger26/Arcade" target="_blank" rel="noopener noreferrer">Source</a>
+            <div class="gdt-hype-pill">Hype <strong data-stat="hype">${Math.round(state.hype)}%</strong></div>
           </div>
         </div>
-        <div class="live-strip">
-          <div class="live-strip-inner">
-            <div class="cell"><label>Credits</label><strong data-stat="coins">${Math.floor(state.coins)}¢</strong></div>
-            <div class="cell tickets"><label>Tickets</label><strong data-stat="tickets">${state.tickets}</strong></div>
-            <div class="cell hype"><label>Traffic</label><strong data-stat="hype">${Math.round(state.hype)}%</strong></div>
-            <div class="cell"><label>Comfort</label><strong data-stat="comfort">${Math.round(state.comfort)}%</strong></div>
+        <div class="gdt-hud-right">
+          <div class="gdt-bubble gdt-bubble-blue" title="Credits">
+            <span class="gdt-bubble-ico" aria-hidden="true">⬡</span>
+            <span data-stat="coins-short">${formatShortNumber(state.coins)}</span>
           </div>
+          <div class="gdt-bubble gdt-bubble-teal" title="Machines on floor">
+            <span class="gdt-bubble-ico" aria-hidden="true">▣</span>
+            <span data-stat="machines-n">${state.machines.length}</span>
+          </div>
+          <div class="gdt-hud-stack">
+            <div class="gdt-hud-line"><span class="gdt-hud-ico" aria-hidden="true">🕐</span> <span data-stat="gdt-time">${formatGdtWeekLine()}</span></div>
+            <div class="gdt-hud-line"><span class="gdt-hud-ico" aria-hidden="true">♥</span> <span data-stat="fans">${formatShortNumber(fanCountFromState(state))}</span> Fans</div>
+            <div class="gdt-hud-line gdt-money"><span class="gdt-hud-ico" aria-hidden="true">$</span> <span data-stat="coins-short">${formatShortNumber(state.coins)}</span></div>
+          </div>
+          <a class="gdt-source-pill" href="https://github.com/jonaskroeger26/Arcade" target="_blank" rel="noopener noreferrer" title="Source">src</a>
         </div>
+      </header>
+      <div class="gdt-main">
+        <div class="gdt-room" role="presentation">
+          <div class="gdt-room-bg" aria-hidden="true">
+            <svg class="gdt-room-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="gdtSky" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#8ec5e8"/>
+                  <stop offset="55%" stop-color="#b8daf0"/>
+                  <stop offset="55%" stop-color="#6fb86f"/>
+                  <stop offset="100%" stop-color="#4a8f4a"/>
+                </linearGradient>
+                <linearGradient id="gdtWall" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#f7efe4"/>
+                  <stop offset="100%" stop-color="#e8dcc8"/>
+                </linearGradient>
+              </defs>
+              <rect width="400" height="200" fill="url(#gdtSky)"/>
+              <path d="M60 28 L340 28 L340 92 L60 92 Z" fill="url(#gdtWall)" opacity="0.95"/>
+              <rect x="130" y="40" width="140" height="38" rx="3" fill="#7ec8ff" opacity="0.75"/>
+              <rect x="132" y="42" width="44" height="34" rx="1" fill="#a8ddff" opacity="0.9"/>
+              <rect x="178" y="42" width="44" height="34" rx="1" fill="#a8ddff" opacity="0.9"/>
+              <rect x="224" y="42" width="44" height="34" rx="1" fill="#a8ddff" opacity="0.9"/>
+              <path d="M0 92 L200 132 L400 92 L200 152 Z" fill="#5cb85c"/>
+              <path d="M0 92 L200 132 L200 152 L0 112 Z" fill="#4a9d4a"/>
+              <path d="M400 92 L200 132 L200 152 L400 112 Z" fill="#3d8a3d"/>
+              <rect x="88" y="118" width="56" height="22" rx="2" fill="#5c4033" opacity="0.85"/>
+              <rect x="256" y="122" width="56" height="22" rx="2" fill="#5c4033" opacity="0.85"/>
+              <rect x="168" y="128" width="64" height="18" rx="2" fill="#6b7280" opacity="0.5"/>
+              <text x="200" y="108" text-anchor="middle" fill="#2d5a2d" font-size="11" font-family="system-ui, sans-serif" font-weight="700" opacity="0.65">ARCADE STUDIO</text>
+            </svg>
+          </div>
+          <button type="button" class="gdt-info-fab" id="gdtInfoFab" aria-label="Season pass">i</button>
+          <div class="main-scroll gdt-room-scroll">
         <div class="tab-panel${isHome ? ' active' : ''}" data-panel="home" role="tabpanel" aria-hidden="${isHome ? 'false' : 'true'}">
-          <div class="hud">
-            <div class="stat"><div class="lbl">Floor credits</div><div class="val" data-stat="coins">${Math.floor(state.coins)}¢</div></div>
-            <div class="stat tickets"><div class="lbl">Tickets</div><div class="val" data-stat="tickets">${state.tickets}</div></div>
-            <div class="stat hype"><div class="lbl">Foot traffic</div><div class="val" data-stat="hype">${Math.round(state.hype)}%</div></div>
-            <div class="stat"><div class="lbl">Ambience</div><div class="val" data-stat="comfort">${Math.round(state.comfort)}%</div></div>
-            <div class="stat token" style="grid-column:1/-1;">
+          <div class="gdt-token-strip">
+            <div class="stat token gdt-token-stat">
               <div class="lbl">ARCADE token (Devnet)</div>
               <div class="val" id="walletArcadeBal">—</div>
             </div>
@@ -1485,8 +1610,10 @@ function render(state, root) {
             Progress stored locally. Devnet mint <span style="color:#38bdf8">${ARCADE_DEVNET.mint.slice(0, 8)}…</span>
           </p>
         </div>
+          </div>
+        </div>
       </div>
-      <nav class="tab-bar" role="tablist" aria-label="Sections">
+      <nav class="tab-bar gdt-tab-bar" role="tablist" aria-label="Sections">
         <button type="button" class="tab-btn${isHome ? ' active' : ''}" role="tab" aria-selected="${isHome ? 'true' : 'false'}" data-tab="home">
           <span class="tab-ico" aria-hidden="true">◇</span>
           Home
@@ -1512,6 +1639,13 @@ function render(state, root) {
       }
     });
   });
+
+  root.querySelector('#gdtMenuBtn')?.addEventListener('click', () => {
+    toast('Studio: use Home, Floor, and Shop below to run your venue.');
+  });
+  root.querySelector('#gdtInfoFab')?.addEventListener('click', () =>
+    openBattlePassModal(state, () => render(state, root)),
+  );
 
   root.querySelector('#btnClaw')?.addEventListener('click', clawHandler);
   const boothBtn = root.querySelector('#clawBoothBtn');

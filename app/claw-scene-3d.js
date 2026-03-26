@@ -48,7 +48,7 @@ function emissiveBulb(color, warm = false) {
 
 /**
  * @param {HTMLElement} host
- * @param {{ colors: string[]; ballCx: number[]; svgMin: number; svgMax: number }} opts
+ * @param {{ colors: string[]; ballCx: number[]; svgMin: number; svgMax: number; onViewMode?: (m: 'front'|'left'|'right') => void }} opts
  * @returns {null | {
  *   setClawFromUi: (clawX: number, clawZ: number) => void,
  *   setCordRetracted: () => void,
@@ -56,11 +56,13 @@ function emissiveBulb(color, warm = false) {
  *   resetAfterMiss: () => void,
  *   playChuteDrop: () => Promise<void>,
  *   returnArmToStart: (targetClawX: number, targetClawZ: number) => Promise<void>,
+ *   setViewMode: (m: 'front' | 'left' | 'right') => void,
+ *   getViewMode: () => 'front' | 'left' | 'right',
  *   dispose: () => void,
  * }}
  */
 export function createClawScene3D(host, opts) {
-  const { colors, ballCx, svgMin, svgMax } = opts;
+  const { colors, ballCx, svgMin, svgMax, onViewMode } = opts;
   const cssW = host.clientWidth || 400;
   const cssH = Math.max(260, Math.round(cssW * 0.72));
 
@@ -84,20 +86,28 @@ export function createClawScene3D(host, opts) {
   function layoutSizes() {
     const w = Math.max(320, host.clientWidth || cssW);
     const h = Math.max(260, Math.round(w * 0.72));
-    const sideW = Math.max(56, Math.floor(w * 0.14));
-    const mainW = Math.max(180, w - 2 * sideW);
-    return { w, h, sideW, mainW };
+    return { w, h };
   }
 
   function updateCameraAspects() {
-    const { h, sideW, mainW } = layoutSizes();
-    cameraMain.aspect = mainW / h;
+    const { w, h } = layoutSizes();
+    const aspect = w / h;
+    cameraMain.aspect = aspect;
     cameraMain.updateProjectionMatrix();
-    cameraLeft.aspect = sideW / h;
+    cameraLeft.aspect = aspect;
     cameraLeft.updateProjectionMatrix();
-    cameraRight.aspect = sideW / h;
+    cameraRight.aspect = aspect;
     cameraRight.updateProjectionMatrix();
   }
+
+  /** @type {'front' | 'left' | 'right'} */
+  let viewMode = 'front';
+  function setViewMode(mode) {
+    if (mode !== 'front' && mode !== 'left' && mode !== 'right') return;
+    viewMode = mode;
+    onViewMode?.(mode);
+  }
+  setViewMode('front');
 
   let renderer;
   try {
@@ -399,23 +409,17 @@ export function createClawScene3D(host, opts) {
 
   let raf = 0;
   function tick() {
-    const { w, h, sideW, mainW } = layoutSizes();
+    const { w, h } = layoutSizes();
     const prevAuto = renderer.autoClear;
     renderer.autoClear = false;
     renderer.setScissorTest(true);
     renderer.setClearColor(0x07040a, 1);
-
-    const drawView = (x, vw, cam) => {
-      renderer.setViewport(x, 0, vw, h);
-      renderer.setScissor(x, 0, vw, h);
-      renderer.clear(true, true, true);
-      renderer.render(scene, cam);
-    };
-
-    drawView(0, sideW, cameraLeft);
-    drawView(sideW, mainW, cameraMain);
-    drawView(sideW + mainW, sideW, cameraRight);
-
+    const cam =
+      viewMode === 'left' ? cameraLeft : viewMode === 'right' ? cameraRight : cameraMain;
+    renderer.setViewport(0, 0, w, h);
+    renderer.setScissor(0, 0, w, h);
+    renderer.clear(true, true, true);
+    renderer.render(scene, cam);
     renderer.setScissorTest(false);
     renderer.autoClear = prevAuto;
     raf = requestAnimationFrame(tick);
@@ -432,6 +436,8 @@ export function createClawScene3D(host, opts) {
   const api = {
     setClawFromUi,
     setCordRetracted,
+    setViewMode,
+    getViewMode: () => viewMode,
 
     async runDropAnimation(catchRes) {
       const { caught, prizeIdx } = catchRes;

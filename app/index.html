@@ -9,7 +9,7 @@
     <script src="mwa-bundle.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg: #09090b;
@@ -33,22 +33,260 @@
         html, body { height: 100%; }
         body {
             font-family: "DM Sans", system-ui, -apple-system, sans-serif;
-            background: var(--bg);
+            background: linear-gradient(165deg, #8eb4d4 0%, #b9d4ea 42%, #5a7a5a 42%, #3d5a3d 100%);
             color: var(--text);
             min-height: 100%;
             -webkit-font-smoothing: antialiased;
         }
         #app {
-            max-width: 420px;
+            max-width: min(520px, 100%);
             margin: 0 auto;
             min-height: 100vh;
             min-height: 100dvh;
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.12);
         }
         .app-shell {
             display: flex;
             flex-direction: column;
             min-height: 100vh;
             min-height: 100dvh;
+        }
+        /* —— Game Dev Tycoon–style studio shell —— */
+        .gdt-shell {
+            background: linear-gradient(180deg, #c5ddf0 0%, #dce8f2 100%);
+            color: #1e293b;
+        }
+        .gdt-shell .tab-context,
+        .gdt-shell .footer-note,
+        .gdt-shell section h2 {
+            color: rgba(30,41,59,0.75);
+        }
+        .gdt-shell .toolbar-label {
+            color: rgba(30,41,59,0.65);
+        }
+        .gdt-top-hud {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 10px 8px 8px;
+            padding-top: calc(10px + env(safe-area-inset-top, 0px));
+            flex-shrink: 0;
+            flex-wrap: wrap;
+            border-bottom: 1px solid rgba(255,255,255,0.5);
+            background: linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.08) 100%);
+        }
+        .gdt-hud-left,
+        .gdt-hud-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .gdt-hud-center {
+            flex: 1 1 200px;
+            min-width: 0;
+            display: flex;
+            justify-content: center;
+            order: -1;
+            width: 100%;
+        }
+        @media (min-width: 420px) {
+            .gdt-hud-center {
+                order: 0;
+                width: auto;
+            }
+            .gdt-top-hud {
+                flex-wrap: nowrap;
+            }
+        }
+        .gdt-icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            border: 1px solid rgba(30,41,59,0.15);
+            background: rgba(255,255,255,0.65);
+            font-size: 1rem;
+            line-height: 1;
+            cursor: pointer;
+            color: #334155;
+        }
+        .gdt-icon-btn:active { transform: scale(0.96); }
+        .gdt-bubble {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            min-width: 44px;
+            padding: 4px 8px 4px 6px;
+            border-radius: 999px;
+            font-size: 0.8125rem;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            color: #fff;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+            box-shadow:
+                inset 0 1px 0 rgba(255,255,255,0.35),
+                0 2px 6px rgba(0,0,0,0.18);
+        }
+        .gdt-bubble-ico { font-size: 0.75rem; opacity: 0.95; }
+        .gdt-bubble-orange { background: linear-gradient(165deg, #f59e0b 0%, #d97706 100%); }
+        .gdt-bubble-yellow { background: linear-gradient(165deg, #fbbf24 0%, #ca8a04 100%); }
+        .gdt-bubble-blue { background: linear-gradient(165deg, #38bdf8 0%, #0284c7 100%); }
+        .gdt-bubble-teal { background: linear-gradient(165deg, #22d3ee 0%, #0891b2 100%); }
+        .gdt-project-card {
+            background: rgba(255,255,255,0.88);
+            border: 1px solid rgba(255,255,255,0.95);
+            border-radius: 10px;
+            padding: 8px 12px 10px;
+            max-width: 280px;
+            width: 100%;
+            box-shadow: 0 4px 14px rgba(15,23,42,0.12);
+        }
+        .gdt-project-title {
+            font-family: "Nunito", "DM Sans", sans-serif;
+            font-weight: 800;
+            font-size: 0.9375rem;
+            color: #0f172a;
+            letter-spacing: -0.02em;
+        }
+        .gdt-project-genre {
+            font-size: 0.6875rem;
+            color: #64748b;
+            margin-top: 2px;
+        }
+        .gdt-progress-block { margin-top: 8px; }
+        .gdt-progress-label {
+            font-size: 0.5625rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+        .gdt-progress-bar {
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .gdt-progress-bar > i {
+            display: block;
+            height: 100%;
+            background: linear-gradient(90deg, #38bdf8 0%, #2563eb 100%);
+            border-radius: 8px;
+            transition: width 0.25s ease;
+        }
+        .gdt-hype-pill {
+            margin-top: 6px;
+            font-size: 0.6875rem;
+            font-weight: 700;
+            color: #475569;
+        }
+        .gdt-hype-pill strong { color: #0ea5e9; }
+        .gdt-hud-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            font-size: 0.6875rem;
+            font-weight: 700;
+            color: #1e293b;
+            line-height: 1.25;
+            font-variant-numeric: tabular-nums;
+        }
+        .gdt-hud-line { display: flex; align-items: center; gap: 4px; }
+        .gdt-hud-ico { font-size: 0.75rem; opacity: 0.85; }
+        .gdt-money { color: #16a34a; font-size: 0.75rem; }
+        .gdt-source-pill {
+            align-self: center;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.625rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #64748b;
+            background: rgba(255,255,255,0.5);
+            border: 1px solid rgba(30,41,59,0.12);
+            text-decoration: none;
+        }
+        .gdt-source-pill:hover { color: #0f172a; background: #fff; }
+        .gdt-main {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        .gdt-room {
+            flex: 1;
+            min-height: 0;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            margin: 0 8px;
+            border-radius: 12px 12px 0 0;
+            overflow: hidden;
+            box-shadow: 0 -2px 20px rgba(15,23,42,0.08);
+        }
+        .gdt-room-bg {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+        }
+        .gdt-room-svg {
+            width: 100%;
+            height: 100%;
+            min-height: 120px;
+            object-fit: cover;
+            display: block;
+            opacity: 0.95;
+        }
+        .gdt-room-scroll {
+            position: relative;
+            z-index: 1;
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            padding: 14px 14px calc(52px + env(safe-area-inset-bottom, 0px));
+            background: linear-gradient(180deg, rgba(255,255,255,0.42) 0%, rgba(248,250,252,0.92) 28%, rgba(248,250,252,0.97) 100%);
+        }
+        .gdt-info-fab {
+            position: absolute;
+            bottom: 14px;
+            left: 10px;
+            z-index: 2;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.9);
+            background: linear-gradient(165deg, #a855f7 0%, #7c3aed 100%);
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 800;
+            font-style: italic;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(124,58,237,0.45);
+        }
+        .gdt-info-fab:active { transform: scale(0.95); }
+        .gdt-token-strip {
+            margin-bottom: 14px;
+        }
+        .gdt-token-stat {
+            background: rgba(255,255,255,0.75);
+            border-color: rgba(148,163,184,0.45);
+        }
+        .gdt-tab-bar {
+            background: linear-gradient(180deg, #e8f0f8 0%, #d4e4f2 100%) !important;
+            border-top-color: rgba(148,163,184,0.45) !important;
+        }
+        .gdt-tab-bar .tab-btn {
+            color: #475569;
+        }
+        .gdt-tab-bar .tab-btn.active {
+            color: #0284c7;
+            background: rgba(14,165,233,0.18);
         }
         .main-scroll {
             flex: 1;
@@ -602,24 +840,72 @@
             min-height: 260px;
             background: radial-gradient(ellipse 80% 60% at 50% 40%, #1a1020 0%, #050308 100%);
         }
-        .claw-three-lbl {
+        .claw-three-peek {
             position: absolute;
-            top: 8px;
-            z-index: 3;
-            font-size: 0.625rem;
+            top: 0;
+            bottom: 0;
+            width: clamp(44px, 16vw, 84px);
+            z-index: 4;
+            margin: 0;
+            padding: 0;
+            border: none;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            font-size: 1.125rem;
             font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.07em;
-            color: rgba(250,250,250,0.5);
-            pointer-events: none;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+            line-height: 1;
+            color: rgba(250,250,250,0.38);
+            text-shadow: 0 1px 3px rgba(0,0,0,0.85);
+            background: linear-gradient(90deg, rgba(0,0,0,0.38) 0%, transparent 100%);
+            transition: color 0.12s ease, background 0.12s ease;
         }
-        .claw-three-lbl-l { left: clamp(6px, 2vw, 14px); }
-        .claw-three-lbl-r { right: clamp(6px, 2vw, 14px); }
+        .claw-three-peek-l {
+            left: 0;
+            border-radius: 0 10px 10px 0;
+        }
+        .claw-three-peek-r {
+            right: 0;
+            border-radius: 10px 0 0 10px;
+            background: linear-gradient(270deg, rgba(0,0,0,0.38) 0%, transparent 100%);
+        }
+        .claw-three-peek:hover {
+            color: rgba(250,250,250,0.62);
+        }
+        .claw-three-peek.is-active {
+            color: rgba(253,230,138,0.95);
+            background: linear-gradient(90deg, rgba(127,29,29,0.42) 0%, transparent 100%);
+        }
+        .claw-three-peek-r.is-active {
+            background: linear-gradient(270deg, rgba(127,29,29,0.42) 0%, transparent 100%);
+        }
+        .claw-three-front {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 5;
+            padding: 7px 16px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            color: #fafaf9;
+            background: rgba(12,10,9,0.72);
+            border: 1px solid rgba(148,163,184,0.35);
+            box-shadow: 0 4px 18px rgba(0,0,0,0.35);
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .claw-three-front:hover {
+            border-color: rgba(253,230,138,0.45);
+            color: #fef3c7;
+        }
         .claw-three-canvas {
             width: 100% !important;
             height: auto !important;
             display: block;
+            position: relative;
+            z-index: 1;
         }
         .claw-svg {
             width: 100%;
